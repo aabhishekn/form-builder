@@ -54,78 +54,12 @@ export default function CreateFormPage() {
     if (fields.length && !selectedId) setSelectedId(fields[0].id);
   }, [fields, selectedId]);
 
-  const selected = fields.find((f) => f.id === selectedId) || null;
   const editing = fields.find((f) => f.id === editId) || null;
 
-  // ----- list-only layout (editor moved to dialog) -----
   return (
     <Grid container spacing={2}>
-      {/* LEFT COLUMN ONLY (Form + Palette + Fields) */}
-      <Grid size={{ xs: 12, md: 6 }}>
-        {/* Form meta */}
-        <Card variant="outlined" sx={{ mb: 2, borderRadius: 3 }}>
-          <CardHeader title="Form" sx={{ py: 1.5 }} />
-          <CardContent>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1.5}
-              alignItems={{ xs: "stretch", sm: "center" }}
-            >
-              <TextField
-                size="small"
-                label="Form name"
-                value={formName}
-                onChange={(e) => dispatch(setFormName(e.target.value))}
-                sx={{ flex: 1, minWidth: 220 }}
-              />
-              <Button variant="contained" onClick={() => dispatch(saveCurrent())}>
-                Save
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {/* Field palette */}
-        <Card variant="outlined" sx={{ mb: 2, borderRadius: 3 }}>
-          <CardHeader
-            title="Add fields"
-            subheader="Pick a type to insert"
-            sx={{ py: 1.5 }}
-          />
-          <CardContent>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(120px,1fr))",
-                gap: 1,
-              }}
-            >
-              <Button variant="outlined" onClick={() => dispatch(addField("text"))}>
-                Text
-              </Button>
-              <Button variant="outlined" onClick={() => dispatch(addField("number"))}>
-                Number
-              </Button>
-              <Button variant="outlined" onClick={() => dispatch(addField("textarea"))}>
-                Textarea
-              </Button>
-              <Button variant="outlined" onClick={() => dispatch(addField("select"))}>
-                Dropdown
-              </Button>
-              <Button variant="outlined" onClick={() => dispatch(addField("radio"))}>
-                Radio
-              </Button>
-              <Button variant="outlined" onClick={() => dispatch(addField("checkbox"))}>
-                Checkbox
-              </Button>
-              <Button variant="outlined" onClick={() => dispatch(addField("date"))}>
-                Date
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Fields list */}
+      {/* LEFT: Fields list */}
+      <Grid size={{ xs: 12, md: 7 }}>
         <Card variant="outlined" sx={{ borderRadius: 3 }}>
           <CardHeader
             title={
@@ -134,7 +68,7 @@ export default function CreateFormPage() {
                 <Chip size="small" label={fields.length} />
               </Stack>
             }
-            subheader="Click to select. Use Edit to modify."
+            subheader="Click to select • Edit opens a popup • Use arrows to reorder"
             sx={{ py: 1.5 }}
           />
           <CardContent sx={{ pt: 0 }}>
@@ -240,7 +174,79 @@ export default function CreateFormPage() {
         </Card>
       </Grid>
 
-      {/* RIGHT COLUMN intentionally removed for a cleaner Create page */}
+      {/* RIGHT: Form + Palette stacked, sticky */}
+      <Grid size={{ xs: 12, md: 5 }}>
+        <Stack
+          spacing={2}
+          sx={{ position: { md: "sticky" }, top: { md: 16 } }}
+        >
+          {/* Form meta */}
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardHeader title="Form" sx={{ py: 1.5 }} />
+            <CardContent>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                alignItems={{ xs: "stretch", sm: "center" }}
+              >
+                <TextField
+                  size="small"
+                  label="Form name"
+                  value={formName}
+                  onChange={(e) => dispatch(setFormName(e.target.value))}
+                  sx={{ flex: 1, minWidth: 220 }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => dispatch(saveCurrent())}
+                >
+                  Save
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          {/* Field palette */}
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardHeader
+              title="Add fields"
+              subheader="Pick a type to insert"
+              sx={{ py: 1.5 }}
+            />
+            <CardContent>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(120px,1fr))",
+                  gap: 1,
+                }}
+              >
+                <Button variant="outlined" onClick={() => dispatch(addField("text"))}>
+                  Text
+                </Button>
+                <Button variant="outlined" onClick={() => dispatch(addField("number"))}>
+                  Number
+                </Button>
+                <Button variant="outlined" onClick={() => dispatch(addField("textarea"))}>
+                  Textarea
+                </Button>
+                <Button variant="outlined" onClick={() => dispatch(addField("select"))}>
+                  Dropdown
+                </Button>
+                <Button variant="outlined" onClick={() => dispatch(addField("radio"))}>
+                  Radio
+                </Button>
+                <Button variant="outlined" onClick={() => dispatch(addField("checkbox"))}>
+                  Checkbox
+                </Button>
+                <Button variant="outlined" onClick={() => dispatch(addField("date"))}>
+                  Date
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Stack>
+      </Grid>
 
       {/* Editor Dialog */}
       <FieldEditDialog
@@ -253,7 +259,7 @@ export default function CreateFormPage() {
   );
 }
 
-/* ---------- Dialog component (same editor as before, inside a popup) ---------- */
+/* -------- Dialog editor (same logic, in popup) -------- */
 
 function FieldEditDialog({
   open,
