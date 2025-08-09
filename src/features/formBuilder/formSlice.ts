@@ -6,7 +6,7 @@ type FieldType = 'text' | 'select'
 type Option = { label: string; value: string }
 type Validation = 'required' | 'email'
 
-type Field = {
+export type Field = {
   id: string
   label: string
   key: string
@@ -15,8 +15,24 @@ type Field = {
   options?: Option[] // only for select
 }
 
-type FormState = { fields: Field[] }
-const initialState: FormState = { fields: [] }
+type FormSnapshot = {
+  id: string
+  name: string
+  createdAt: string
+  fields: Field[]
+}
+
+type FormState = {
+  fields: Field[]
+  formName: string
+  saved: FormSnapshot[]
+}
+
+const initialState: FormState = {
+  fields: [],
+  formName: 'Untitled',
+  saved: [],
+}
 
 const slice = createSlice({
   name: 'form',
@@ -44,8 +60,34 @@ const slice = createSlice({
       const f = state.fields.find((x) => x.id === action.payload.id)
       if (f) Object.assign(f, action.payload.patch)
     },
+
+    setFormName(state, action: PayloadAction<string>) {
+      state.formName = action.payload || 'Untitled'
+    },
+
+    saveCurrent(state) {
+      const snap: FormSnapshot = {
+        id: uuid(),
+        name: state.formName || 'Untitled',
+        createdAt: new Date().toISOString(),
+        fields: JSON.parse(JSON.stringify(state.fields)), // deep copy
+      }
+      state.saved.unshift(snap)
+    },
+
+    loadSaved(state, action: PayloadAction<string>) {
+      const found = state.saved.find((s) => s.id === action.payload)
+      if (found) {
+        state.fields = JSON.parse(JSON.stringify(found.fields))
+        state.formName = found.name
+      }
+    },
+
+    deleteSaved(state, action: PayloadAction<string>) {
+      state.saved = state.saved.filter((s) => s.id !== action.payload)
+    },
   },
 })
 
-export const { addField, updateField } = slice.actions
+export const { addField, updateField, setFormName, saveCurrent, loadSaved, deleteSaved } = slice.actions
 export default slice.reducer

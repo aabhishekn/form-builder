@@ -6,11 +6,12 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useDispatch, useSelector } from 'react-redux'
 import type { RootState, AppDispatch } from '../app/store'
-import { addField, updateField } from '../features/formBuilder/formSlice'
+import { addField, updateField, setFormName, saveCurrent } from '../features/formBuilder/formSlice'
 
 export default function CreateFormPage() {
   const dispatch = useDispatch<AppDispatch>()
   const fields = useSelector((s: RootState) => s.form.fields)
+  const formName = useSelector((s: RootState) => s.form.formName)
   const [selectedId, setSelectedId] = React.useState<string | null>(fields[0]?.id ?? null)
 
   React.useEffect(() => {
@@ -51,12 +52,19 @@ export default function CreateFormPage() {
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
       {/* Left: Add buttons + list */}
       <Paper sx={{ p: 2, flex: 1 }}>
-        <Stack direction="row" spacing={1}>
-          <Button variant="contained" onClick={() => dispatch(addField('text'))}>
-            Add text
-          </Button>
-          <Button variant="outlined" onClick={() => dispatch(addField('select'))}>
-            Add dropdown
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button variant="contained" onClick={() => dispatch(addField('text'))}>Add text</Button>
+          <Button variant="outlined" onClick={() => dispatch(addField('select'))}>Add dropdown</Button>
+          <Box sx={{ flex: 1 }} />
+          <TextField
+            size="small"
+            label="Form name"
+            value={formName}
+            onChange={(e) => dispatch(setFormName(e.target.value))}
+            sx={{ width: 240 }}
+          />
+          <Button variant="outlined" onClick={() => dispatch(saveCurrent())} sx={{ ml: 1 }}>
+            Save
           </Button>
         </Stack>
 
