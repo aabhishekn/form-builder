@@ -1,6 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuid } from 'uuid'
+import { loadSaved as loadSavedStorage, loadCurrent as loadCurrentStorage } from './localStorage'
 
 type FieldType = 'text' | 'select'
 type Option = { label: string; value: string }
@@ -28,11 +29,15 @@ type FormState = {
   saved: FormSnapshot[]
 }
 
-const initialState: FormState = {
-  fields: [],
-  formName: 'Untitled',
-  saved: [],
-}
+const initialState: FormState = (() => {
+  const saved = loadSavedStorage()
+  const curr = loadCurrentStorage()
+  return {
+    fields: curr?.fields ?? [],
+    formName: curr?.formName ?? 'Untitled',
+    saved: Array.isArray(saved) ? saved : [],
+  }
+})()
 
 const slice = createSlice({
   name: 'form',
