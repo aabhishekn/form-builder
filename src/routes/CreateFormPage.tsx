@@ -1,3 +1,4 @@
+// src/routes/CreateFormPage.tsx
 import * as React from "react";
 import {
   Button,
@@ -5,17 +6,29 @@ import {
   ListItemButton,
   ListItemText,
   Stack,
-  Paper,
   Box,
   TextField,
   Typography,
   FormControlLabel,
   Checkbox,
   IconButton,
+  Divider,
+  Card,
+  CardHeader,
+  CardContent,
+  Alert,
+  Chip,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
+import Grid from "@mui/material/Grid2";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import EditIcon from "@mui/icons-material/Edit";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "../app/store";
 import {
@@ -31,326 +44,388 @@ export default function CreateFormPage() {
   const dispatch = useDispatch<AppDispatch>();
   const fields = useSelector((s: RootState) => s.form.fields);
   const formName = useSelector((s: RootState) => s.form.formName);
+
   const [selectedId, setSelectedId] = React.useState<string | null>(
     fields[0]?.id ?? null
   );
+  const [editId, setEditId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (fields.length && !selectedId) setSelectedId(fields[0].id);
   }, [fields, selectedId]);
 
   const selected = fields.find((f) => f.id === selectedId) || null;
+  const editing = fields.find((f) => f.id === editId) || null;
+
+  // ----- list-only layout (editor moved to dialog) -----
+  return (
+    <Grid container spacing={2}>
+      {/* LEFT COLUMN ONLY (Form + Palette + Fields) */}
+      <Grid size={{ xs: 12, md: 6 }}>
+        {/* Form meta */}
+        <Card variant="outlined" sx={{ mb: 2, borderRadius: 3 }}>
+          <CardHeader title="Form" sx={{ py: 1.5 }} />
+          <CardContent>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.5}
+              alignItems={{ xs: "stretch", sm: "center" }}
+            >
+              <TextField
+                size="small"
+                label="Form name"
+                value={formName}
+                onChange={(e) => dispatch(setFormName(e.target.value))}
+                sx={{ flex: 1, minWidth: 220 }}
+              />
+              <Button variant="contained" onClick={() => dispatch(saveCurrent())}>
+                Save
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Field palette */}
+        <Card variant="outlined" sx={{ mb: 2, borderRadius: 3 }}>
+          <CardHeader
+            title="Add fields"
+            subheader="Pick a type to insert"
+            sx={{ py: 1.5 }}
+          />
+          <CardContent>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(120px,1fr))",
+                gap: 1,
+              }}
+            >
+              <Button variant="outlined" onClick={() => dispatch(addField("text"))}>
+                Text
+              </Button>
+              <Button variant="outlined" onClick={() => dispatch(addField("number"))}>
+                Number
+              </Button>
+              <Button variant="outlined" onClick={() => dispatch(addField("textarea"))}>
+                Textarea
+              </Button>
+              <Button variant="outlined" onClick={() => dispatch(addField("select"))}>
+                Dropdown
+              </Button>
+              <Button variant="outlined" onClick={() => dispatch(addField("radio"))}>
+                Radio
+              </Button>
+              <Button variant="outlined" onClick={() => dispatch(addField("checkbox"))}>
+                Checkbox
+              </Button>
+              <Button variant="outlined" onClick={() => dispatch(addField("date"))}>
+                Date
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Fields list */}
+        <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <CardHeader
+            title={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <span>Fields</span>
+                <Chip size="small" label={fields.length} />
+              </Stack>
+            }
+            subheader="Click to select. Use Edit to modify."
+            sx={{ py: 1.5 }}
+          />
+          <CardContent sx={{ pt: 0 }}>
+            {fields.length === 0 && (
+              <Alert severity="info">Add fields to get started.</Alert>
+            )}
+
+            <List dense sx={{ m: 0 }}>
+              {fields.map((f, idx) => (
+                <Box
+                  key={f.id}
+                  sx={{
+                    border: "1px solid",
+                    borderColor:
+                      selectedId === f.id ? "primary.main" : "divider",
+                    borderRadius: 2,
+                    px: 1,
+                    py: 0.5,
+                    mb: 1,
+                    bgcolor:
+                      selectedId === f.id ? "action.hover" : "background.paper",
+                    transition: "background-color .2s, border-color .2s",
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <ListItemButton
+                      selected={selectedId === f.id}
+                      onClick={() => setSelectedId(f.id)}
+                      sx={{ flex: 1, borderRadius: 2 }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                          >
+                            <Typography fontWeight={600} noWrap>
+                              {f.label || "Untitled"}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={f.type}
+                              variant="outlined"
+                            />
+                          </Stack>
+                        }
+                        secondaryTypographyProps={{ noWrap: true }}
+                        secondary={`key: ${f.key}`}
+                      />
+                    </ListItemButton>
+
+                    <Tooltip title="Edit">
+                      <IconButton size="small" onClick={() => setEditId(f.id)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="Move up">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            dispatch(
+                              reorderField({ id: f.id, direction: "up" })
+                            )
+                          }
+                          disabled={idx === 0}
+                        >
+                          <ArrowUpwardIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Move down">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            dispatch(
+                              reorderField({ id: f.id, direction: "down" })
+                            )
+                          }
+                          disabled={idx === fields.length - 1}
+                        >
+                          <ArrowDownwardIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => dispatch(deleteField(f.id))}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Box>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* RIGHT COLUMN intentionally removed for a cleaner Create page */}
+
+      {/* Editor Dialog */}
+      <FieldEditDialog
+        open={!!editId}
+        field={editing}
+        onClose={() => setEditId(null)}
+        onPatch={(id, patch) => dispatch(updateField({ id, patch }))}
+      />
+    </Grid>
+  );
+}
+
+/* ---------- Dialog component (same editor as before, inside a popup) ---------- */
+
+function FieldEditDialog({
+  open,
+  field,
+  onClose,
+  onPatch,
+}: {
+  open: boolean;
+  field: any | null;
+  onClose: () => void;
+  onPatch: (id: string, patch: Partial<any>) => void;
+}) {
+  if (!field) return null;
 
   const toggleValidation = (rule: "required" | "email") => {
-    if (!selected) return;
-    const set = new Set(selected.validations ?? []);
+    const set = new Set<string>(field.validations ?? []);
     if (set.has(rule)) set.delete(rule);
     else set.add(rule);
-    dispatch(
-      updateField({ id: selected.id, patch: { validations: Array.from(set) } })
-    );
+    onPatch(field.id, { validations: Array.from(set) });
   };
 
-  const updateOption = (
-    i: number,
-    patch: { label?: string; value?: string }
-  ) => {
-    if (!selected || !selected.options) return;
-    const next = [...selected.options];
+  const updateOption = (i: number, patch: { label?: string; value?: string }) => {
+    const next = [...(field.options ?? [])];
     next[i] = { ...next[i], ...patch };
-    dispatch(updateField({ id: selected.id, patch: { options: next } }));
+    onPatch(field.id, { options: next });
   };
+
   const addOption = () => {
-    if (!selected) return;
-    const opts = selected.options ?? [];
-    dispatch(
-      updateField({
-        id: selected.id,
-        patch: {
-          options: [
-            ...opts,
-            {
-              label: `Option ${opts.length + 1}`,
-              value: `opt${opts.length + 1}`,
-            },
-          ],
-        },
-      })
-    );
+    const opts = field.options ?? [];
+    onPatch(field.id, {
+      options: [
+        ...opts,
+        { label: `Option ${opts.length + 1}`, value: `opt${opts.length + 1}` },
+      ],
+    });
   };
+
   const removeOption = (i: number) => {
-    if (!selected || !selected.options) return;
-    const next = selected.options.filter((_, idx) => idx !== i);
-    dispatch(updateField({ id: selected.id, patch: { options: next } }));
+    const next = (field.options ?? []).filter((_: any, idx: number) => idx !== i);
+    onPatch(field.id, { options: next });
   };
 
   return (
-    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-      {/* Left: Add buttons + list */}
-      <Paper sx={{ p: 2, flex: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Button
-            variant="contained"
-            onClick={() => dispatch(addField("text"))}
-          >
-            Add text
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => dispatch(addField("number"))}
-          >
-            Add number
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => dispatch(addField("textarea"))}
-          >
-            Add textarea
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => dispatch(addField("select"))}
-          >
-            Add dropdown
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => dispatch(addField("radio"))}
-          >
-            Add radio
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => dispatch(addField("checkbox"))}
-          >
-            Add checkbox
-          </Button>
-          <Button variant="outlined" onClick={() => dispatch(addField("date"))}>
-            Add date
-          </Button>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Edit “{field.label || "Untitled"}”</DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <Typography variant="overline" color="text.secondary">
+            Basics
+          </Typography>
 
-          <Box sx={{ flex: 1 }} />
           <TextField
-            size="small"
-            label="Form name"
-            value={formName}
-            onChange={(e) => dispatch(setFormName(e.target.value))}
-            sx={{ width: 240 }}
+            label="Label"
+            value={field.label}
+            onChange={(e) => onPatch(field.id, { label: e.target.value })}
+            fullWidth
           />
-          <Button
-            variant="outlined"
-            onClick={() => dispatch(saveCurrent())}
-            sx={{ ml: 1 }}
-          >
-            Save
-          </Button>
-        </Stack>
+          <TextField
+            label="Key (used in Preview)"
+            value={field.key}
+            onChange={(e) => onPatch(field.id, { key: e.target.value })}
+            helperText="Unique key used in values and formulas"
+            fullWidth
+          />
 
-        <List dense sx={{ mt: 2 }}>
-          {fields.map((f, idx) => (
-            <Stack
-              key={f.id}
-              direction="row"
-              alignItems="center"
-              spacing={1}
-              sx={{ pr: 1 }}
-            >
-              <ListItemButton
-                selected={selectedId === f.id}
-                onClick={() => setSelectedId(f.id)}
-                sx={{ flex: 1 }}
-              >
-                <ListItemText
-                  primary={`${f.label || "Untitled"} (${f.type})`}
-                  secondary={`key: ${f.key}`}
-                />
-              </ListItemButton>
-
-              {/* reorder + delete */}
-              <IconButton
-                size="small"
-                title="Move up"
-                onClick={() =>
-                  dispatch(reorderField({ id: f.id, direction: "up" }))
-                }
-                disabled={idx === 0}
-              >
-                <ArrowUpwardIcon fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                title="Move down"
-                onClick={() =>
-                  dispatch(reorderField({ id: f.id, direction: "down" }))
-                }
-                disabled={idx === fields.length - 1}
-              >
-                <ArrowDownwardIcon fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                color="error"
-                title="Delete"
-                onClick={() => dispatch(deleteField(f.id))}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Stack>
-          ))}
-          {!fields.length && (
-            <Box sx={{ color: "text.secondary", p: 1 }}>
-              Click “Add text” to start.
-            </Box>
-          )}
-        </List>
-      </Paper>
-
-      {/* Right: Edit panel (unchanged) */}
-      <Paper sx={{ p: 2, flex: 1 }}>
-        {selected ? (
-          <Stack spacing={2}>
-            <Typography variant="h6">Edit field</Typography>
-
-            <TextField
-              label="Label"
-              value={selected.label}
-              onChange={(e) =>
-                dispatch(
-                  updateField({
-                    id: selected.id,
-                    patch: { label: e.target.value },
-                  })
-                )
-              }
-              fullWidth
-            />
-            <TextField
-              label="Key (used in Preview)"
-              value={selected.key}
-              onChange={(e) =>
-                dispatch(
-                  updateField({
-                    id: selected.id,
-                    patch: { key: e.target.value },
-                  })
-                )
-              }
-              fullWidth
-            />
-            {(selected.type === "text" ||
-              selected.type === "number" ||
-              selected.type === "textarea" ||
-              selected.type === "date") && (
+          {(field.type === "text" ||
+            field.type === "number" ||
+            field.type === "textarea" ||
+            field.type === "date") && (
+            <>
+              <Typography variant="overline" color="text.secondary">
+                Default
+              </Typography>
               <TextField
                 label="Default value"
                 type={
-                  selected.type === "number"
+                  field.type === "number"
                     ? "number"
-                    : selected.type === "date"
+                    : field.type === "date"
                     ? "date"
                     : "text"
                 }
                 InputLabelProps={
-                  selected.type === "date" ? { shrink: true } : undefined
+                  field.type === "date" ? { shrink: true } : undefined
                 }
-                value={selected.defaultValue ?? ""}
+                value={field.defaultValue ?? ""}
                 onChange={(e) =>
-                  dispatch(
-                    updateField({
-                      id: selected.id,
-                      patch: {
-                        defaultValue:
-                          selected.type === "number"
-                            ? e.target.value // keep as string is fine; Preview will render as number input
-                            : e.target.value,
-                      },
-                    })
-                  )
+                  onPatch(field.id, { defaultValue: e.target.value })
                 }
                 fullWidth
               />
-            )}
+            </>
+          )}
 
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Validation
-              </Typography>
+          <Divider />
+
+          <Typography variant="overline" color="text.secondary">
+            Validation
+          </Typography>
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={(field.validations ?? []).includes("required")}
+                  onChange={() => toggleValidation("required")}
+                />
+              }
+              label="Required"
+            />
+            {field.type === "text" && (
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={(selected.validations ?? []).includes("required")}
-                    onChange={() => toggleValidation("required")}
+                    checked={(field.validations ?? []).includes("email")}
+                    onChange={() => toggleValidation("email")}
                   />
                 }
-                label="Required"
+                label="Must be a valid email"
               />
-              {selected.type === "text" && (
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={(selected.validations ?? []).includes("email")}
-                      onChange={() => toggleValidation("email")}
-                    />
-                  }
-                  label="Must be a valid email"
-                />
-              )}
-            </Box>
-
-            {(selected.type === "select" ||
-              selected.type === "radio" ||
-              selected.type === "checkbox") && (
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Options
-                </Typography>
-                <Stack spacing={1}>
-                  {(selected.options ?? []).map((opt, i) => (
-                    <Stack
-                      key={i}
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                    >
-                      <TextField
-                        size="small"
-                        label="Label"
-                        value={opt.label}
-                        onChange={(e) =>
-                          updateOption(i, { label: e.target.value })
-                        }
-                        fullWidth
-                      />
-                      <TextField
-                        size="small"
-                        label="Value"
-                        value={opt.value}
-                        onChange={(e) =>
-                          updateOption(i, { value: e.target.value })
-                        }
-                        fullWidth
-                      />
-                      <IconButton
-                        aria-label="delete"
-                        onClick={() => removeOption(i)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Stack>
-                  ))}
-                  <Button onClick={addOption} variant="outlined" size="small">
-                    Add option
-                  </Button>
-                </Stack>
-              </Box>
             )}
-          </Stack>
-        ) : (
-          <Box sx={{ color: "text.secondary" }}>
-            Select a field from the list to edit.
           </Box>
-        )}
-      </Paper>
-    </Stack>
+
+          {(field.type === "select" ||
+            field.type === "radio" ||
+            field.type === "checkbox") && (
+            <>
+              <Divider />
+              <Typography variant="overline" color="text.secondary">
+                Options
+              </Typography>
+              <Stack spacing={1}>
+                {(field.options ?? []).map((opt: any, i: number) => (
+                  <Stack
+                    key={i}
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                  >
+                    <TextField
+                      size="small"
+                      label="Label"
+                      value={opt.label}
+                      onChange={(e) => updateOption(i, { label: e.target.value })}
+                      fullWidth
+                    />
+                    <TextField
+                      size="small"
+                      label="Value"
+                      value={opt.value}
+                      onChange={(e) => updateOption(i, { value: e.target.value })}
+                      fullWidth
+                    />
+                    <IconButton
+                      aria-label="delete"
+                      onClick={() => removeOption(i)}
+                      sx={{ alignSelf: { xs: "flex-end", sm: "center" } }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Stack>
+                ))}
+                <Button onClick={addOption} variant="outlined" size="small">
+                  Add option
+                </Button>
+              </Stack>
+            </>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
