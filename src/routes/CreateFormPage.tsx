@@ -109,15 +109,15 @@ export default function CreateFormPage() {
                             <Typography fontWeight={600} noWrap>
                               {f.label || "Untitled"}
                             </Typography>
-                            <Chip
-                              size="small"
-                              label={f.type}
-                              variant="outlined"
-                            />
+                            <Tooltip title={`Key: ${f.key}`} arrow>
+                              <Chip
+                                size="small"
+                                label={f.type}
+                                variant="outlined"
+                              />
+                            </Tooltip>
                           </Stack>
                         }
-                        secondaryTypographyProps={{ noWrap: true }}
-                        secondary={`key: ${f.key}`}
                       />
                     </ListItemButton>
 
@@ -176,10 +176,7 @@ export default function CreateFormPage() {
 
       {/* RIGHT: Form + Palette stacked, sticky */}
       <Grid size={{ xs: 12, md: 5 }}>
-        <Stack
-          spacing={2}
-          sx={{ position: { md: "sticky" }, top: { md: 16 } }}
-        >
+        <Stack spacing={2} sx={{ position: { md: "sticky" }, top: { md: 16 } }}>
           {/* Form meta */}
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardHeader title="Form" sx={{ py: 1.5 }} />
@@ -221,25 +218,46 @@ export default function CreateFormPage() {
                   gap: 1,
                 }}
               >
-                <Button variant="outlined" onClick={() => dispatch(addField("text"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("text"))}
+                >
                   Text
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("number"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("number"))}
+                >
                   Number
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("textarea"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("textarea"))}
+                >
                   Textarea
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("select"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("select"))}
+                >
                   Dropdown
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("radio"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("radio"))}
+                >
                   Radio
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("checkbox"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("checkbox"))}
+                >
                   Checkbox
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("date"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("date"))}
+                >
                   Date
                 </Button>
               </Box>
@@ -281,7 +299,10 @@ function FieldEditDialog({
     onPatch(field.id, { validations: Array.from(set) });
   };
 
-  const updateOption = (i: number, patch: { label?: string; value?: string }) => {
+  const updateOption = (
+    i: number,
+    patch: { label?: string; value?: string }
+  ) => {
     const next = [...(field.options ?? [])];
     next[i] = { ...next[i], ...patch };
     onPatch(field.id, { options: next });
@@ -298,7 +319,9 @@ function FieldEditDialog({
   };
 
   const removeOption = (i: number) => {
-    const next = (field.options ?? []).filter((_: any, idx: number) => idx !== i);
+    const next = (field.options ?? []).filter(
+      (_: any, idx: number) => idx !== i
+    );
     onPatch(field.id, { options: next });
   };
 
@@ -402,14 +425,18 @@ function FieldEditDialog({
                       size="small"
                       label="Label"
                       value={opt.label}
-                      onChange={(e) => updateOption(i, { label: e.target.value })}
+                      onChange={(e) =>
+                        updateOption(i, { label: e.target.value })
+                      }
                       fullWidth
                     />
                     <TextField
                       size="small"
                       label="Value"
                       value={opt.value}
-                      onChange={(e) => updateOption(i, { value: e.target.value })}
+                      onChange={(e) =>
+                        updateOption(i, { value: e.target.value })
+                      }
                       fullWidth
                     />
                     <IconButton
