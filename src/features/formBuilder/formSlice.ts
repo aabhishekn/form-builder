@@ -6,18 +6,19 @@ import {
   loadCurrent as loadCurrentStorage,
 } from "./localStorage";
 
-type FieldType = "text" | "select";
+type FieldType = 'text' | 'number' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'date'
 type Option = { label: string; value: string };
 type Validation = "required" | "email";
 
 export type Field = {
-  id: string;
-  label: string;
-  key: string;
-  type: FieldType;
-  validations: Validation[];
-  options?: Option[]; 
-};
+  id: string
+  label: string
+  key: string
+  type: FieldType
+  validations: Validation[]
+  defaultValue?: any
+  options?: Option[] // for select, radio, checkbox
+}
 
 type FormSnapshot = {
   id: string;
@@ -47,22 +48,27 @@ const slice = createSlice({
   initialState,
   reducers: {
     addField(state, action: PayloadAction<FieldType>) {
-      const id = uuid();
+      const id = uuid()
+      const type = action.payload
       const base: Field = {
         id,
-        label: "Untitled",
+        label: 'Untitled',
         key: `field_${id.slice(0, 8)}`,
-        type: action.payload,
+        type,
         validations: [],
-      };
-      if (action.payload === "select") {
-        base.options = [
-          { label: "Option 1", value: "opt1" },
-          { label: "Option 2", value: "opt2" },
-        ];
+        defaultValue: type === 'checkbox' ? [] : '', // arrays for multi-select
       }
-      state.fields.push(base);
+
+      if (type === 'select' || type === 'radio' || type === 'checkbox') {
+        base.options = [
+          { label: 'Option 1', value: 'opt1' },
+          { label: 'Option 2', value: 'opt2' },
+        ]
+      }
+
+      state.fields.push(base)
     },
+
 
     updateField(
       state,
