@@ -195,7 +195,7 @@ export default function CreateFormPage() {
                 <TextField
                   size="small"
                   label="Form name"
-                  value={formName}
+                  value={formName ?? ''}
                   onChange={(e) => dispatch(setFormName(e.target.value))}
                   sx={{ flex: 1, minWidth: 220 }}
                 />

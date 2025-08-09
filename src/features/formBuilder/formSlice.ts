@@ -38,7 +38,7 @@ const initialState: FormState = (() => {
   const curr = loadCurrentStorage();
   return {
     fields: curr?.fields ?? [],
-    formName: curr?.formName ?? "Untitled",
+    formName: curr?.formName ?? "",
     saved: Array.isArray(saved) ? saved : [],
   };
 })();
@@ -52,7 +52,7 @@ const slice = createSlice({
       const type = action.payload
       const base: Field = {
         id,
-        label: 'Untitled',
+        label: '',
         key: `field_${id.slice(0, 8)}`,
         type,
         validations: [],
@@ -79,13 +79,13 @@ const slice = createSlice({
     },
 
     setFormName(state, action: PayloadAction<string>) {
-      state.formName = action.payload || "Untitled";
+      state.formName = action.payload || "";
     },
 
     saveCurrent(state) {
       const snap: FormSnapshot = {
         id: uuid(),
-        name: state.formName || "Untitled",
+        name: (state.formName ?? '').trim() || 'Untitled',
         createdAt: new Date().toISOString(),
         fields: JSON.parse(JSON.stringify(state.fields)), // deep copy
       };
