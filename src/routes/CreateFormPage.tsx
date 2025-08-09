@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Button, List, ListItemButton, ListItemText, Stack, Paper, Box, TextField, Typography } from '@mui/material'
+import { Button, List, ListItemButton, ListItemText, Stack, Paper, Box, TextField, Typography, FormControlLabel, Checkbox } from '@mui/material'
 import { useDispatch, useSelector } from 'react-redux'
 import type { RootState, AppDispatch } from '../app/store'
 import { addTextField, updateField } from '../features/formBuilder/formSlice'
@@ -14,6 +14,14 @@ export default function CreateFormPage() {
   }, [fields, selectedId])
 
   const selected = fields.find((f) => f.id === selectedId) || null
+
+  const toggleValidation = (rule: 'required' | 'email') => {
+    if (!selected) return
+    const set = new Set(selected.validations ?? [])
+    if (set.has(rule)) set.delete(rule)
+    else set.add(rule)
+    dispatch(updateField({ id: selected.id, patch: { validations: Array.from(set) } }))
+  }
 
   return (
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -60,6 +68,29 @@ export default function CreateFormPage() {
               }
               fullWidth
             />
+
+            {/* NEW: simple validations */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Validation</Typography>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={(selected.validations ?? []).includes('required')}
+                    onChange={() => toggleValidation('required')}
+                  />
+                }
+                label="Required"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={(selected.validations ?? []).includes('email')}
+                    onChange={() => toggleValidation('email')}
+                  />
+                }
+                label="Must be a valid email"
+              />
+            </Box>
           </Stack>
         ) : (
           <Box sx={{ color: 'text.secondary' }}>Select a field from the list to edit.</Box>
