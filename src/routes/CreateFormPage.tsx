@@ -106,9 +106,15 @@ export default function CreateFormPage() {
                             spacing={1}
                             alignItems="center"
                           >
-                            <Typography fontWeight={600} noWrap>
-                              {f.label || "Untitled"}
-                            </Typography>
+                            <Typography
+  fontWeight={600}
+  noWrap
+  color={f.label ? 'text.primary' : 'text.secondary'}
+  fontStyle={f.label ? 'normal' : 'italic'}
+>
+  {f.label || 'Click Edit to name'}
+</Typography>
+
                             <Tooltip title={`Key: ${f.key}`} arrow>
                               <Chip
                                 size="small"
@@ -327,7 +333,10 @@ function FieldEditDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Edit “{field.label || "Untitled"}”</DialogTitle>
+      <DialogTitle>
+  Edit “{field.label || "Click to name"}”
+</DialogTitle>
+
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="overline" color="text.secondary">
