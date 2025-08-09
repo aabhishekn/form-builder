@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit'
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuid } from 'uuid'
 
 type Field = { id: string; label: string; key: string; type: 'text' }
@@ -19,8 +19,12 @@ const slice = createSlice({
         type: 'text',
       })
     },
+    updateField(state, action: PayloadAction<{ id: string; patch: Partial<Field> }>) {
+      const f = state.fields.find((x) => x.id === action.payload.id)
+      if (f) Object.assign(f, action.payload.patch)
+    },
   },
 })
 
-export const { addTextField } = slice.actions
+export const { addTextField, updateField } = slice.actions
 export default slice.reducer
