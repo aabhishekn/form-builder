@@ -4,9 +4,11 @@ import {
   FormControlLabel, Checkbox, IconButton
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { useDispatch, useSelector } from 'react-redux'
 import type { RootState, AppDispatch } from '../app/store'
-import { addField, updateField, setFormName, saveCurrent } from '../features/formBuilder/formSlice'
+import { addField, updateField, setFormName, saveCurrent, deleteField, reorderField } from '../features/formBuilder/formSlice'
 
 export default function CreateFormPage() {
   const dispatch = useDispatch<AppDispatch>()
@@ -69,14 +71,42 @@ export default function CreateFormPage() {
         </Stack>
 
         <List dense sx={{ mt: 2 }}>
-          {fields.map((f) => (
-            <ListItemButton
-              key={f.id}
-              selected={selectedId === f.id}
-              onClick={() => setSelectedId(f.id)}
-            >
-              <ListItemText primary={`${f.label || 'Untitled'} (${f.type})`} secondary={`key: ${f.key}`} />
-            </ListItemButton>
+          {fields.map((f, idx) => (
+            <Stack key={f.id} direction="row" alignItems="center" spacing={1} sx={{ pr: 1 }}>
+              <ListItemButton
+                selected={selectedId === f.id}
+                onClick={() => setSelectedId(f.id)}
+                sx={{ flex: 1 }}
+              >
+                <ListItemText primary={`${f.label || 'Untitled'} (${f.type})`} secondary={`key: ${f.key}`} />
+              </ListItemButton>
+
+              {/* reorder + delete */}
+              <IconButton
+                size="small"
+                title="Move up"
+                onClick={() => dispatch(reorderField({ id: f.id, direction: 'up' }))}
+                disabled={idx === 0}
+              >
+                <ArrowUpwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                title="Move down"
+                onClick={() => dispatch(reorderField({ id: f.id, direction: 'down' }))}
+                disabled={idx === fields.length - 1}
+              >
+                <ArrowDownwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
+                title="Delete"
+                onClick={() => dispatch(deleteField(f.id))}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Stack>
           ))}
           {!fields.length && (
             <Box sx={{ color: 'text.secondary', p: 1 }}>Click “Add text” to start.</Box>
@@ -84,7 +114,7 @@ export default function CreateFormPage() {
         </List>
       </Paper>
 
-      {/* Right: Edit panel */}
+      {/* Right: Edit panel (unchanged) */}
       <Paper sx={{ p: 2, flex: 1 }}>
         {selected ? (
           <Stack spacing={2}>
@@ -107,7 +137,6 @@ export default function CreateFormPage() {
               fullWidth
             />
 
-            {/* Validation */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Validation</Typography>
               <FormControlLabel
@@ -132,7 +161,6 @@ export default function CreateFormPage() {
               )}
             </Box>
 
-            {/* Options for dropdown */}
             {selected.type === 'select' && (
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Options</Typography>
