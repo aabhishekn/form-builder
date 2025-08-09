@@ -1,30 +1,46 @@
-import * as React from 'react'
-import { Button, List, ListItemButton, ListItemText, Stack, Paper, Box, TextField, Typography, FormControlLabel, Checkbox } from '@mui/material'
-import { useDispatch, useSelector } from 'react-redux'
-import type { RootState, AppDispatch } from '../app/store'
-import { addTextField, updateField } from '../features/formBuilder/formSlice'
+import * as React from "react";
+import {
+  Button,
+  List,
+  ListItemButton,
+  ListItemText,
+  Stack,
+  Paper,
+  Box,
+  TextField,
+  Typography,
+  FormControlLabel,
+  Checkbox,
+} from "@mui/material";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "../app/store";
+import { addTextField, updateField } from "../features/formBuilder/formSlice";
 
 export default function CreateFormPage() {
-  const dispatch = useDispatch<AppDispatch>()
-  const fields = useSelector((s: RootState) => s.form.fields)
-  const [selectedId, setSelectedId] = React.useState<string | null>(fields[0]?.id ?? null)
+  const dispatch = useDispatch<AppDispatch>();
+  const fields = useSelector((s: RootState) => s.form.fields);
+  const [selectedId, setSelectedId] = React.useState<string | null>(
+    fields[0]?.id ?? null
+  );
 
   React.useEffect(() => {
-    if (fields.length && !selectedId) setSelectedId(fields[0].id)
-  }, [fields, selectedId])
+    if (fields.length && !selectedId) setSelectedId(fields[0].id);
+  }, [fields, selectedId]);
 
-  const selected = fields.find((f) => f.id === selectedId) || null
+  const selected = fields.find((f) => f.id === selectedId) || null;
 
-  const toggleValidation = (rule: 'required' | 'email') => {
-    if (!selected) return
-    const set = new Set(selected.validations ?? [])
-    if (set.has(rule)) set.delete(rule)
-    else set.add(rule)
-    dispatch(updateField({ id: selected.id, patch: { validations: Array.from(set) } }))
-  }
+  const toggleValidation = (rule: "required" | "email") => {
+    if (!selected) return;
+    const set = new Set(selected.validations ?? []);
+    if (set.has(rule)) set.delete(rule);
+    else set.add(rule);
+    dispatch(
+      updateField({ id: selected.id, patch: { validations: Array.from(set) } })
+    );
+  };
 
   return (
-    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
       {/* Left: Add button + list */}
       <Paper sx={{ p: 2, flex: 1 }}>
         <Button variant="contained" onClick={() => dispatch(addTextField())}>
@@ -38,11 +54,16 @@ export default function CreateFormPage() {
               selected={selectedId === f.id}
               onClick={() => setSelectedId(f.id)}
             >
-              <ListItemText primary={f.label || 'Untitled'} secondary={`key: ${f.key} • type: ${f.type}`} />
+              <ListItemText
+                primary={f.label || "Untitled"}
+                secondary={`key: ${f.key} • type: ${f.type}`}
+              />
             </ListItemButton>
           ))}
           {!fields.length && (
-            <Box sx={{ color: 'text.secondary', p: 1 }}>Click “Add text field” to start.</Box>
+            <Box sx={{ color: "text.secondary", p: 1 }}>
+              Click “Add text field” to start.
+            </Box>
           )}
         </List>
       </Paper>
@@ -56,7 +77,12 @@ export default function CreateFormPage() {
               label="Label"
               value={selected.label}
               onChange={(e) =>
-                dispatch(updateField({ id: selected.id, patch: { label: e.target.value } }))
+                dispatch(
+                  updateField({
+                    id: selected.id,
+                    patch: { label: e.target.value },
+                  })
+                )
               }
               fullWidth
             />
@@ -64,19 +90,26 @@ export default function CreateFormPage() {
               label="Key (used later in Preview)"
               value={selected.key}
               onChange={(e) =>
-                dispatch(updateField({ id: selected.id, patch: { key: e.target.value } }))
+                dispatch(
+                  updateField({
+                    id: selected.id,
+                    patch: { key: e.target.value },
+                  })
+                )
               }
               fullWidth
             />
 
             {/* NEW: simple validations */}
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Validation</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Validation
+              </Typography>
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={(selected.validations ?? []).includes('required')}
-                    onChange={() => toggleValidation('required')}
+                    checked={(selected.validations ?? []).includes("required")}
+                    onChange={() => toggleValidation("required")}
                   />
                 }
                 label="Required"
@@ -84,8 +117,8 @@ export default function CreateFormPage() {
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={(selected.validations ?? []).includes('email')}
-                    onChange={() => toggleValidation('email')}
+                    checked={(selected.validations ?? []).includes("email")}
+                    onChange={() => toggleValidation("email")}
                   />
                 }
                 label="Must be a valid email"
@@ -93,9 +126,11 @@ export default function CreateFormPage() {
             </Box>
           </Stack>
         ) : (
-          <Box sx={{ color: 'text.secondary' }}>Select a field from the list to edit.</Box>
+          <Box sx={{ color: "text.secondary" }}>
+            Select a field from the list to edit.
+          </Box>
         )}
       </Paper>
     </Stack>
-  )
+  );
 }
