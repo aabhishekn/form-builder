@@ -15,50 +15,24 @@ import {
   Checkbox,
   FormGroup,
 } from "@mui/material";
-import { Parser } from "expr-eval";
 
 const emailRegex =
   /^(?:[a-zA-Z0-9_'^&\-]+(?:\.[a-zA-Z0-9_'^&\-]+)*|".+")@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
 
-// --- small expression runtime for derived fields ---
-const parser = new Parser({ allowMemberAccess: false });
+function ageFrom(dobISO?: string) {
+  if (!dobISO) return 0;
+  const d = new Date(dobISO);
+  const diff = Date.now() - d.getTime();
+  const ageDt = new Date(diff);
+  return Math.abs(ageDt.getUTCFullYear() - 1970);
+}
 
-const helpers = {
-  now: () => Date.now(),
-  concat: (...args: any[]) => args.join(""),
-  lower: (s: any) => String(s ?? "").toLowerCase(),
-  upper: (s: any) => String(s ?? "").toUpperCase(),
-  ageFrom: (dobISO: string) => {
-    if (!dobISO) return 0;
-    const d = new Date(dobISO);
-    const diff = Date.now() - d.getTime();
-    const ageDt = new Date(diff);
-    return Math.abs(ageDt.getUTCFullYear() - 1970);
-  },
-  dateDiffDays: (aISO: string, bISO: string) => {
-    if (!aISO || !bISO) return 0;
-    const a = new Date(aISO);
-    const b = new Date(bISO);
-    const ms = Math.abs(b.getTime() - a.getTime());
-    return Math.floor(ms / (1000 * 60 * 60 * 24));
-  },
-};
-
-function computeDerived(fields: any[], values: Record<string, any>) {
-  const next = { ...values };
-  for (const f of fields) {
-    if (f.derived?.isDerived && f.derived.formula) {
-      const scope: Record<string, any> = { ...helpers };
-      for (const k of f.derived.dependsOn ?? []) scope[k] = next[k];
-      try {
-        const expr = parser.parse(f.derived.formula);
-        next[f.key] = expr.evaluate(scope);
-      } catch {
-        // ignore invalid formulas
-      }
-    }
-  }
-  return next;
+function daysBetween(aISO?: string, bISO?: string) {
+  if (!aISO || !bISO) return 0;
+  const a = new Date(aISO);
+  const b = new Date(bISO);
+  const ms = Math.abs(b.getTime() - a.getTime());
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
 
 export default function PreviewPage() {
@@ -66,7 +40,32 @@ export default function PreviewPage() {
   const [values, setValues] = React.useState<Record<string, any>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  // Initialize from schema (use defaultValue; arrays for checkbox) + compute derived
+  // compute all derived from current values
+  const computeDerived = React.useCallback(
+    (v: Record<string, any>) => {
+      const next = { ...v };
+      for (const f of fields) {
+        if (!f.derived) continue;
+        const parents = f.derived.parents || [];
+        if (f.derived.recipe === "fullName") {
+          const a = next[parents[0]] ?? "";
+          const b = next[parents[1]] ?? "";
+          next[f.key] = [a, b].filter(Boolean).join(" ").trim();
+        } else if (f.derived.recipe === "ageFromDOB") {
+          const d = next[parents[0]] ?? "";
+          next[f.key] = d ? ageFrom(d) : "";
+        } else if (f.derived.recipe === "daysBetween") {
+          const a = next[parents[0]] ?? "";
+          const b = next[parents[1]] ?? "";
+          next[f.key] = a && b ? daysBetween(a, b) : "";
+        }
+      }
+      return next;
+    },
+    [fields]
+  );
+
+  // Initialize from schema
   React.useEffect(() => {
     const init: Record<string, any> = {};
     fields.forEach((f) => {
@@ -77,15 +76,9 @@ export default function PreviewPage() {
           ? []
           : "";
     });
-    setValues(computeDerived(fields, init));
+    setValues(computeDerived(init));
     setErrors({});
-  }, [fields]);
-
-  // Recompute derived whenever derived configs change
-  React.useEffect(() => {
-    setValues((v) => computeDerived(fields, v));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(fields.map((f) => f.derived))]);
+  }, [fields, computeDerived]);
 
   if (!fields.length)
     return <Alert severity="info">Go to Create and add fields first.</Alert>;
@@ -96,7 +89,6 @@ export default function PreviewPage() {
       const v = values[f.key];
       const rules = f.validations ?? [];
 
-      // required
       if (
         rules.includes("required") &&
         (v === "" ||
@@ -107,8 +99,6 @@ export default function PreviewPage() {
         next[f.key] = "This field is required.";
         continue;
       }
-
-      // email (text only)
       if (
         f.type === "text" &&
         rules.includes("email") &&
@@ -119,7 +109,6 @@ export default function PreviewPage() {
         continue;
       }
 
-      // min length (text/textarea only)
       if (
         (f.type === "text" || f.type === "textarea") &&
         typeof f.minLength === "number" &&
@@ -132,7 +121,6 @@ export default function PreviewPage() {
         }
       }
 
-      // max length (text/textarea only)
       if (
         (f.type === "text" || f.type === "textarea") &&
         typeof f.maxLength === "number" &&
@@ -145,7 +133,6 @@ export default function PreviewPage() {
         }
       }
 
-      // password policy (text only)
       if (f.type === "text" && f.password) {
         const s = String(v ?? "");
         if (s.length > 0 && s.length < 8) {
@@ -168,22 +155,20 @@ export default function PreviewPage() {
     alert("Submitted:\n" + JSON.stringify(values, null, 2));
   };
 
-  // When user types, recompute derived on-the-fly
   const set = (k: string, val: any) =>
-    setValues((prev) => computeDerived(fields, { ...prev, [k]: val }));
+    setValues((prev) => computeDerived({ ...prev, [k]: val }));
 
   return (
     <form onSubmit={submit}>
       <Stack spacing={2}>
         {fields.map((f) => {
           const err = errors[f.key];
-          const isDerived = !!f.derived?.isDerived;
+          const isDerived = !!f.derived;
           const common = {
             label: f.label || "Untitled",
             error: !!err,
             helperText: err ?? " ",
             fullWidth: true,
-            InputProps: isDerived ? { readOnly: true } : undefined,
           } as const;
 
           if (f.type === "textarea") {
@@ -195,6 +180,7 @@ export default function PreviewPage() {
                 onChange={(e) => set(f.key, e.target.value)}
                 multiline
                 minRows={3}
+                InputProps={{ readOnly: isDerived }}
               />
             );
           }
@@ -207,6 +193,7 @@ export default function PreviewPage() {
                 type="number"
                 value={values[f.key] ?? ""}
                 onChange={(e) => set(f.key, e.target.value)}
+                InputProps={{ readOnly: isDerived }}
               />
             );
           }
@@ -220,6 +207,7 @@ export default function PreviewPage() {
                 value={values[f.key] ?? ""}
                 onChange={(e) => set(f.key, e.target.value)}
                 InputLabelProps={{ shrink: true }}
+                InputProps={{ readOnly: isDerived }}
               />
             );
           }
@@ -232,6 +220,7 @@ export default function PreviewPage() {
                 select
                 value={values[f.key] ?? ""}
                 onChange={(e) => set(f.key, e.target.value)}
+                disabled={isDerived}
               >
                 {(f.options ?? []).map((o) => (
                   <MenuItem key={o.value} value={o.value}>
@@ -244,7 +233,7 @@ export default function PreviewPage() {
 
           if (f.type === "radio") {
             return (
-              <FormControl key={f.id} error={!!err}>
+              <FormControl key={f.id} error={!!err} disabled={isDerived}>
                 <FormLabel>{f.label}</FormLabel>
                 <RadioGroup
                   value={values[f.key] ?? ""}
@@ -254,7 +243,7 @@ export default function PreviewPage() {
                     <FormControlLabel
                       key={o.value}
                       value={o.value}
-                      control={<Radio disabled={isDerived} />}
+                      control={<Radio />}
                       label={o.label}
                     />
                   ))}
@@ -280,7 +269,7 @@ export default function PreviewPage() {
               set(f.key, has ? arr.filter((x) => x !== val) : [...arr, val]);
             };
             return (
-              <FormControl key={f.id} error={!!err}>
+              <FormControl key={f.id} error={!!err} disabled={isDerived}>
                 <FormLabel>{f.label}</FormLabel>
                 <FormGroup>
                   {(f.options ?? []).map((o) => (
@@ -290,7 +279,6 @@ export default function PreviewPage() {
                         <Checkbox
                           checked={arr.includes(o.value)}
                           onChange={() => toggle(o.value)}
-                          disabled={isDerived}
                         />
                       }
                       label={o.label}
@@ -316,6 +304,7 @@ export default function PreviewPage() {
               {...common}
               value={values[f.key] ?? ""}
               onChange={(e) => set(f.key, e.target.value)}
+              InputProps={{ readOnly: isDerived }}
             />
           );
         })}
