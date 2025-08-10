@@ -15,16 +15,58 @@ import {
   Checkbox,
   FormGroup,
 } from "@mui/material";
+import { Parser } from "expr-eval";
 
 const emailRegex =
   /^(?:[a-zA-Z0-9_'^&\-]+(?:\.[a-zA-Z0-9_'^&\-]+)*|".+")@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
+
+// --- small expression runtime for derived fields ---
+const parser = new Parser({ allowMemberAccess: false });
+
+const helpers = {
+  now: () => Date.now(),
+  concat: (...args: any[]) => args.join(""),
+  lower: (s: any) => String(s ?? "").toLowerCase(),
+  upper: (s: any) => String(s ?? "").toUpperCase(),
+  ageFrom: (dobISO: string) => {
+    if (!dobISO) return 0;
+    const d = new Date(dobISO);
+    const diff = Date.now() - d.getTime();
+    const ageDt = new Date(diff);
+    return Math.abs(ageDt.getUTCFullYear() - 1970);
+  },
+  dateDiffDays: (aISO: string, bISO: string) => {
+    if (!aISO || !bISO) return 0;
+    const a = new Date(aISO);
+    const b = new Date(bISO);
+    const ms = Math.abs(b.getTime() - a.getTime());
+    return Math.floor(ms / (1000 * 60 * 60 * 24));
+  },
+};
+
+function computeDerived(fields: any[], values: Record<string, any>) {
+  const next = { ...values };
+  for (const f of fields) {
+    if (f.derived?.isDerived && f.derived.formula) {
+      const scope: Record<string, any> = { ...helpers };
+      for (const k of f.derived.dependsOn ?? []) scope[k] = next[k];
+      try {
+        const expr = parser.parse(f.derived.formula);
+        next[f.key] = expr.evaluate(scope);
+      } catch {
+        // ignore invalid formulas
+      }
+    }
+  }
+  return next;
+}
 
 export default function PreviewPage() {
   const fields = useSelector((s: RootState) => s.form.fields);
   const [values, setValues] = React.useState<Record<string, any>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  // Initialize from schema (use defaultValue; arrays for checkbox)
+  // Initialize from schema (use defaultValue; arrays for checkbox) + compute derived
   React.useEffect(() => {
     const init: Record<string, any> = {};
     fields.forEach((f) => {
@@ -35,9 +77,15 @@ export default function PreviewPage() {
           ? []
           : "";
     });
-    setValues(init);
+    setValues(computeDerived(fields, init));
     setErrors({});
   }, [fields]);
+
+  // Recompute derived whenever derived configs change
+  React.useEffect(() => {
+    setValues((v) => computeDerived(fields, v));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(fields.map((f) => f.derived))]);
 
   if (!fields.length)
     return <Alert severity="info">Go to Create and add fields first.</Alert>;
@@ -120,19 +168,22 @@ export default function PreviewPage() {
     alert("Submitted:\n" + JSON.stringify(values, null, 2));
   };
 
+  // When user types, recompute derived on-the-fly
   const set = (k: string, val: any) =>
-    setValues((prev) => ({ ...prev, [k]: val }));
+    setValues((prev) => computeDerived(fields, { ...prev, [k]: val }));
 
   return (
     <form onSubmit={submit}>
       <Stack spacing={2}>
         {fields.map((f) => {
           const err = errors[f.key];
+          const isDerived = !!f.derived?.isDerived;
           const common = {
             label: f.label || "Untitled",
             error: !!err,
             helperText: err ?? " ",
             fullWidth: true,
+            InputProps: isDerived ? { readOnly: true } : undefined,
           } as const;
 
           if (f.type === "textarea") {
@@ -203,7 +254,7 @@ export default function PreviewPage() {
                     <FormControlLabel
                       key={o.value}
                       value={o.value}
-                      control={<Radio />}
+                      control={<Radio disabled={isDerived} />}
                       label={o.label}
                     />
                   ))}
@@ -239,6 +290,7 @@ export default function PreviewPage() {
                         <Checkbox
                           checked={arr.includes(o.value)}
                           onChange={() => toggle(o.value)}
+                          disabled={isDerived}
                         />
                       }
                       label={o.label}
