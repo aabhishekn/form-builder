@@ -116,9 +116,10 @@ export default function CreateFormPage() {
                             >
                               {f.label || "Click Edit to name"}
                             </Typography>
-
                             <Chip size="small" label={f.type} variant="outlined" />
-
+                            {f.derived?.isDerived && (
+                              <Chip size="small" color="secondary" label="derived" />
+                            )}
                           </Stack>
                         }
                       />
@@ -273,6 +274,7 @@ export default function CreateFormPage() {
       <FieldEditDialog
         open={!!editId}
         field={editing}
+        allFields={fields}                      {/* <-- pass all fields */}
         onClose={() => setEditId(null)}
         onPatch={(id, patch) => dispatch(updateField({ id, patch }))}
       />
@@ -287,11 +289,13 @@ function FieldEditDialog({
   field,
   onClose,
   onPatch,
+  allFields,
 }: {
   open: boolean;
   field: any | null;
   onClose: () => void;
   onPatch: (id: string, patch: Partial<any>) => void;
+  allFields: any[]; // simple typing to avoid refactors
 }) {
   if (!field) return null;
 
@@ -326,6 +330,31 @@ function FieldEditDialog({
       (_: any, idx: number) => idx !== i
     );
     onPatch(field.id, { options: next });
+  };
+
+  // DERIVED helpers
+  const toggleDerived = (checked: boolean) => {
+    if (!checked) onPatch(field.id, { derived: undefined });
+    else
+      onPatch(field.id, {
+        derived: {
+          isDerived: true,
+          dependsOn: field.derived?.dependsOn ?? [],
+          formula: field.derived?.formula ?? "",
+        },
+      });
+  };
+
+  const toggleParent = (k: string, checked: boolean) => {
+    const prev = field.derived?.dependsOn ?? [];
+    const next = checked ? [...prev, k] : prev.filter((x: string) => x !== k);
+    onPatch(field.id, {
+      derived: {
+        isDerived: true,
+        dependsOn: next,
+        formula: field.derived?.formula ?? "",
+      },
+    });
   };
 
   return (
@@ -401,7 +430,7 @@ function FieldEditDialog({
               />
             )}
           </Box>
-          {/* Length rules (text + textarea) */}
+
           {(field.type === "text" || field.type === "textarea") && (
             <Stack
               direction={{ xs: "column", sm: "row" }}
@@ -443,7 +472,6 @@ function FieldEditDialog({
             </Stack>
           )}
 
-          {/* Password policy (text only) */}
           {field.type === "text" && (
             <FormControlLabel
               sx={{ mt: 1 }}
@@ -459,6 +487,7 @@ function FieldEditDialog({
             />
           )}
 
+          {/* OPTIONS */}
           {(field.type === "select" ||
             field.type === "radio" ||
             field.type === "checkbox") && (
@@ -507,6 +536,80 @@ function FieldEditDialog({
                 </Button>
               </Stack>
             </>
+          )}
+
+          {/* DERIVED */}
+          <Divider />
+          <Typography variant="overline" color="text.secondary">
+            Derived
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={!!field.derived?.isDerived}
+                onChange={(e) => toggleDerived(e.target.checked)}
+              />
+            }
+            label="Make this a derived field"
+          />
+
+          {field.derived?.isDerived && (
+            <Stack spacing={1} sx={{ pl: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                Select parent fields:
+              </Typography>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fill, minmax(220px,1fr))",
+                  gap: 0.5,
+                }}
+              >
+                {allFields
+                  .filter((af) => af.id !== field.id)
+                  .map((af) => {
+                    const checked =
+                      field.derived?.dependsOn?.includes(af.key) ?? false;
+                    return (
+                      <FormControlLabel
+                        key={af.id}
+                        label={`${af.label || "Untitled"} — ${af.key}`}
+                        control={
+                          <Checkbox
+                            checked={checked}
+                            onChange={(e) =>
+                              toggleParent(af.key, e.target.checked)
+                            }
+                          />
+                        }
+                      />
+                    );
+                  })}
+              </Box>
+
+              <TextField
+                label="Formula"
+                placeholder="e.g. concat(firstName,' ',lastName) or ageFrom(dob)"
+                value={field.derived?.formula ?? ""}
+                onChange={(e) =>
+                  onPatch(field.id, {
+                    derived: {
+                      isDerived: true,
+                      dependsOn: field.derived?.dependsOn ?? [],
+                      formula: e.target.value,
+                    },
+                  })
+                }
+                multiline
+                minRows={2}
+              />
+              <Typography variant="caption" color="text.secondary">
+                Helpers: now(), concat(...), lower(s), upper(s), ageFrom(dobISO),
+                dateDiffDays(aISO,bISO)
+              </Typography>
+            </Stack>
           )}
         </Stack>
       </DialogContent>
