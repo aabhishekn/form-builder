@@ -6,7 +6,7 @@ import {
   loadCurrent as loadCurrentStorage,
 } from "./localStorage";
 
-type FieldType =
+export type FieldType =
   | "text"
   | "number"
   | "textarea"
@@ -15,21 +15,15 @@ type FieldType =
   | "checkbox"
   | "date";
 
-type Option = { label: string; value: string };
-type Validation = "required" | "email";
+export type Option = { label: string; value: string };
+export type Validation = "required" | "email";
 
-/** Recipes (no free-text formula) */
 export type DerivedRecipe =
-  | "fullName"          // needs 2 text/textarea parents
-  | "ageFromDate"       // needs 1 date
-  | "daysBetweenDates"  // needs 2 dates
-  | "uppercase"         // needs 1 text/textarea
-  | "lowercase";        // needs 1 text/textarea
-
-export type Derived = {
-  recipe: DerivedRecipe;
-  parents: string[]; // parent field keys
-};
+  | "fullName"
+  | "ageFromDate"
+  | "daysBetweenDates"
+  | "uppercase"
+  | "lowercase";
 
 export type Field = {
   id: string;
@@ -42,7 +36,10 @@ export type Field = {
   minLength?: number;
   maxLength?: number;
   password?: boolean;
-  derived?: Derived;   // <-- NEW
+  derived?: {
+    recipe: DerivedRecipe;
+    parents: string[]; // parent field keys
+  };
 };
 
 type FormSnapshot = {
@@ -131,17 +128,24 @@ const slice = createSlice({
     deleteField(state, action: PayloadAction<string>) {
       const id = action.payload;
       const removed = state.fields.find((f) => f.id === id);
+      const removedKey = removed?.key;
+      // remove the field
       state.fields = state.fields.filter((f) => f.id !== id);
-
-      // If any derived fields referenced the removed key, drop that parent.
-      if (removed) {
-        state.fields = state.fields.map((f) => {
-          if (f.derived) {
-            const parents = f.derived.parents.filter((k) => k !== removed.key);
-            return { ...f, derived: { ...f.derived, parents } };
-          }
-          return f;
-        });
+      // also strip it from other fields' derived parents
+      if (removedKey) {
+        state.fields = state.fields.map((f) =>
+          f.derived
+            ? {
+                ...f,
+                derived: {
+                  ...f.derived,
+                  parents: (f.derived.parents || []).filter(
+                    (k) => k !== removedKey
+                  ),
+                },
+              }
+            : f
+        );
       }
     },
 
@@ -170,4 +174,5 @@ export const {
   deleteField,
   reorderField,
 } = slice.actions;
+
 export default slice.reducer;
