@@ -591,7 +591,7 @@ function FieldEditDialog({
                           disabled={disableExtra}
                         />
                       }
-                      label={`${p.label || "(unnamed)"} — ${p.key}`}
+                      label={`${p.label || "(unnamed)"}`}
                     />
                   );
                 })}
