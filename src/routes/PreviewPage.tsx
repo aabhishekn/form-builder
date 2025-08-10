@@ -15,56 +15,69 @@ import {
   Checkbox,
   FormGroup,
 } from "@mui/material";
-import type { Field, DerivedRecipe } from "../features/formBuilder/formSlice";
 
 const emailRegex =
   /^(?:[a-zA-Z0-9_'^&\-]+(?:\.[a-zA-Z0-9_'^&\-]+)*|".+")@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
 
-function computeDerived(fields: Field[], values: Record<string, any>) {
-  const next = { ...values };
+function computeAge(dobISO: string): number {
+  if (!dobISO) return 0;
+  const dob = new Date(dobISO);
+  if (Number.isNaN(dob.getTime())) return 0;
+  const diff = Date.now() - dob.getTime();
+  const ageDt = new Date(diff);
+  return Math.abs(ageDt.getUTCFullYear() - 1970);
+}
 
-  const get = (k: string) => next[k];
+function daysBetween(aISO: string, bISO: string): number {
+  if (!aISO || !bISO) return 0;
+  const a = new Date(aISO);
+  const b = new Date(bISO);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  const ms = Math.abs(b.getTime() - a.getTime());
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
 
-  const ageFrom = (iso?: string) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "";
-    const diff = Date.now() - d.getTime();
-    const ageDt = new Date(diff);
-    return Math.abs(ageDt.getUTCFullYear() - 1970);
-  };
-
-  const daysBetween = (a?: string, b?: string) => {
-    if (!a || !b) return "";
-    const A = new Date(a);
-    const B = new Date(b);
-    if (isNaN(A.getTime()) || isNaN(B.getTime())) return "";
-    const ms = Math.abs(B.getTime() - A.getTime());
-    return Math.floor(ms / (1000 * 60 * 60 * 24));
-  };
-
+function computeDerived(
+  fields: RootState["form"]["fields"],
+  base: Record<string, any>
+) {
+  const next = { ...base };
   for (const f of fields) {
-    const d = f.derived;
-    if (!d) continue;
+    if (!f.derived) continue;
+    const { recipe, parents } = f.derived;
+    const get = (k: string) => next[k];
 
-    const parents = d.parents.map((k) => get(k));
-
-    let out: any = "";
-    const r: DerivedRecipe = d.recipe;
-
-    if (r === "fullName") {
-      out = [parents[0] ?? "", parents[1] ?? ""].filter(Boolean).join(" ").trim();
-    } else if (r === "ageFromDate") {
-      out = ageFrom(parents[0]);
-    } else if (r === "daysBetweenDates") {
-      out = daysBetween(parents[0], parents[1]);
-    } else if (r === "uppercase") {
-      out = (parents[0] ?? "").toString().toUpperCase();
-    } else if (r === "lowercase") {
-      out = (parents[0] ?? "").toString().toLowerCase();
+    try {
+      switch (recipe) {
+        case "fullName": {
+          const [a, b] = parents;
+          next[f.key] = [get(a) ?? "", get(b) ?? ""].join(" ").trim();
+          break;
+        }
+        case "ageFromDate": {
+          const [a] = parents;
+          next[f.key] = computeAge(String(get(a) ?? ""));
+          break;
+        }
+        case "daysBetweenDates": {
+          const [a, b] = parents;
+          next[f.key] = daysBetween(String(get(a) ?? ""), String(get(b) ?? ""));
+          break;
+        }
+        case "uppercase": {
+          const [a] = parents;
+          next[f.key] = String(get(a) ?? "").toUpperCase();
+          break;
+        }
+        case "lowercase": {
+          const [a] = parents;
+          next[f.key] = String(get(a) ?? "").toLowerCase();
+          break;
+        }
+      }
+    } catch {
+      // ignore bad inputs
     }
-
-    next[f.key] = out;
   }
   return next;
 }
@@ -74,7 +87,7 @@ export default function PreviewPage() {
   const [values, setValues] = React.useState<Record<string, any>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  // Initialize from schema and compute derived once
+  // Initialize from schema (defaultValue; arrays for checkbox), then compute derived once.
   React.useEffect(() => {
     const init: Record<string, any> = {};
     fields.forEach((f) => {
@@ -121,7 +134,7 @@ export default function PreviewPage() {
         continue;
       }
 
-      // min/max length (if present on your Field)
+      // min length (text/textarea only)
       if (
         (f.type === "text" || f.type === "textarea") &&
         typeof f.minLength === "number" &&
@@ -133,6 +146,8 @@ export default function PreviewPage() {
           continue;
         }
       }
+
+      // max length (text/textarea only)
       if (
         (f.type === "text" || f.type === "textarea") &&
         typeof f.maxLength === "number" &&
@@ -162,26 +177,34 @@ export default function PreviewPage() {
     return Object.keys(next).length === 0;
   };
 
-  const set = (k: string, val: any) =>
-    setValues((prev) => computeDerived(fields, { ...prev, [k]: val }));
-
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
-    alert("Submitted:\n" + JSON.stringify(values, null, 2));
+    // recompute derived before validating, in case parents changed
+    setValues((prev) => {
+      const computed = computeDerived(fields, prev);
+      const ok = validate();
+      if (ok) {
+        alert("Submitted:\n" + JSON.stringify(computed, null, 2));
+      }
+      return computed;
+    });
   };
+
+  const set = (k: string, val: any) =>
+    setValues((prev) => computeDerived(fields, { ...prev, [k]: val }));
 
   return (
     <form onSubmit={submit}>
       <Stack spacing={2}>
         {fields.map((f) => {
           const err = errors[f.key];
+          const isDerived = !!f.derived;
           const common = {
             label: f.label || "Untitled",
             error: !!err,
             helperText: err ?? " ",
             fullWidth: true,
-            InputProps: { readOnly: !!f.derived }, // derived are read-only
+            InputProps: isDerived ? { readOnly: true } : undefined,
           } as const;
 
           if (f.type === "textarea") {
