@@ -18,6 +18,9 @@ export type Field = {
   validations: Validation[]
   defaultValue?: any
   options?: Option[] // for select, radio, checkbox
+  minLength?: number
+  maxLength?: number
+  password?: boolean
 }
 
 type FormSnapshot = {
