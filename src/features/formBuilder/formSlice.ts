@@ -6,27 +6,39 @@ import {
   loadCurrent as loadCurrentStorage,
 } from "./localStorage";
 
-type FieldType = 'text' | 'number' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'date'
+/** ====== NEW: derived recipes ====== */
+type DerivedRecipe = "fullName" | "ageFromDOB" | "daysBetween";
+type DerivedConfig = {
+  recipe: DerivedRecipe;
+  /** parent field keys (not labels) */
+  parents: string[]; // fullName: [first,last], ageFromDOB: [dob], daysBetween: [start,end]
+};
+
+type FieldType =
+  | "text"
+  | "number"
+  | "textarea"
+  | "select"
+  | "radio"
+  | "checkbox"
+  | "date";
 type Option = { label: string; value: string };
 type Validation = "required" | "email";
-type DerivedConfig = {
-  isDerived: boolean
-  dependsOn: string[]   // other field keys
-  formula: string       // e.g. concat(firstName,' ',lastName) or ageFrom(dob)
-}
+
 export type Field = {
-  id: string
-  label: string
-  key: string
-  type: FieldType
-  validations: Validation[]
-  defaultValue?: any
-  options?: Option[] // for select, radio, checkbox
-  minLength?: number
-  maxLength?: number
-  password?: boolean
-  derived?: DerivedConfig
-}
+  id: string;
+  label: string;
+  key: string;
+  type: FieldType;
+  validations: Validation[];
+  defaultValue?: any;
+  options?: Option[]; // for select, radio, checkbox
+  minLength?: number;
+  maxLength?: number;
+  password?: boolean;
+  /** NEW: if present, field is derived by a recipe */
+  derived?: DerivedConfig;
+};
 
 type FormSnapshot = {
   id: string;
@@ -56,27 +68,26 @@ const slice = createSlice({
   initialState,
   reducers: {
     addField(state, action: PayloadAction<FieldType>) {
-      const id = uuid()
-      const type = action.payload
+      const id = uuid();
+      const type = action.payload;
       const base: Field = {
         id,
-        label: '',
+        label: "",
         key: `field_${id.slice(0, 8)}`,
         type,
         validations: [],
-        defaultValue: type === 'checkbox' ? [] : '', // arrays for multi-select
-      }
+        defaultValue: type === "checkbox" ? [] : "",
+      };
 
-      if (type === 'select' || type === 'radio' || type === 'checkbox') {
+      if (type === "select" || type === "radio" || type === "checkbox") {
         base.options = [
-          { label: 'Option 1', value: 'opt1' },
-          { label: 'Option 2', value: 'opt2' },
-        ]
+          { label: "Option 1", value: "opt1" },
+          { label: "Option 2", value: "opt2" },
+        ];
       }
 
-      state.fields.push(base)
+      state.fields.push(base);
     },
-
 
     updateField(
       state,
@@ -93,9 +104,9 @@ const slice = createSlice({
     saveCurrent(state) {
       const snap: FormSnapshot = {
         id: uuid(),
-        name: (state.formName ?? '').trim() || 'Untitled',
+        name: (state.formName ?? "").trim() || "Untitled",
         createdAt: new Date().toISOString(),
-        fields: JSON.parse(JSON.stringify(state.fields)), // deep copy
+        fields: JSON.parse(JSON.stringify(state.fields)),
       };
       state.saved.unshift(snap);
     },
@@ -111,9 +122,26 @@ const slice = createSlice({
     deleteSaved(state, action: PayloadAction<string>) {
       state.saved = state.saved.filter((s) => s.id !== action.payload);
     },
+
     deleteField(state, action: PayloadAction<string>) {
-      const id = action.payload;
-      state.fields = state.fields.filter((f) => f.id !== id);
+      const removed = state.fields.find((f) => f.id === action.payload);
+      state.fields = state.fields.filter((f) => f.id !== action.payload);
+
+      // NEW: strip this field’s key from any derived parents
+      if (removed) {
+        const removedKey = removed.key;
+        state.fields = state.fields.map((f) =>
+          f.derived
+            ? {
+                ...f,
+                derived: {
+                  ...f.derived,
+                  parents: f.derived.parents.filter((k) => k !== removedKey),
+                },
+              }
+            : f
+        );
+      }
     },
 
     reorderField(
