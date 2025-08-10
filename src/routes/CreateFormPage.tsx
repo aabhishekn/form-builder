@@ -23,12 +23,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  RadioGroup,
-  Radio,
-  FormControl,
-  FormLabel,
   Select,
   MenuItem,
+  InputLabel,
+  FormControl,
+  FormHelperText,
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -44,9 +43,9 @@ import {
   saveCurrent,
   deleteField,
   reorderField,
+  type Field,
+  type DerivedRecipe,
 } from "../features/formBuilder/formSlice";
-
-type DerivedRecipe = "fullName" | "ageFromDOB" | "daysBetween";
 
 export default function CreateFormPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -58,11 +57,22 @@ export default function CreateFormPage() {
   );
   const [editId, setEditId] = React.useState<string | null>(null);
 
+  // Save dialog
+  const [openSave, setOpenSave] = React.useState(false);
+  const [nameDraft, setNameDraft] = React.useState(formName || "");
+
   React.useEffect(() => {
     if (fields.length && !selectedId) setSelectedId(fields[0].id);
   }, [fields, selectedId]);
 
   const editing = fields.find((f) => f.id === editId) || null;
+
+  const doSave = () => {
+    const finalName = (nameDraft || "").trim() || "Untitled";
+    dispatch(setFormName(finalName));
+    dispatch(saveCurrent());
+    setOpenSave(false);
+  };
 
   return (
     <Grid container spacing={2}>
@@ -127,12 +137,7 @@ export default function CreateFormPage() {
 
                             <Chip size="small" label={f.type} variant="outlined" />
                             {f.derived && (
-                              <Chip
-                                size="small"
-                                label="derived"
-                                color="secondary"
-                                variant="outlined"
-                              />
+                              <Chip size="small" color="secondary" label="derived" />
                             )}
                           </Stack>
                         }
@@ -208,12 +213,20 @@ export default function CreateFormPage() {
                   size="small"
                   label="Form name"
                   value={formName ?? ""}
-                  onChange={(e) => dispatch(setFormName(e.target.value))}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // keep local draft in sync if dialog isn't open
+                    if (!openSave) setNameDraft(v);
+                    dispatch(setFormName(v));
+                  }}
                   sx={{ flex: 1, minWidth: 220 }}
                 />
                 <Button
                   variant="contained"
-                  onClick={() => dispatch(saveCurrent())}
+                  onClick={() => {
+                    setNameDraft(formName || "");
+                    setOpenSave(true);
+                  }}
                 >
                   Save
                 </Button>
@@ -236,46 +249,25 @@ export default function CreateFormPage() {
                   gap: 1,
                 }}
               >
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(addField("text"))}
-                >
+                <Button variant="outlined" onClick={() => dispatch(addField("text"))}>
                   Text
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(addField("number"))}
-                >
+                <Button variant="outlined" onClick={() => dispatch(addField("number"))}>
                   Number
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(addField("textarea"))}
-                >
+                <Button variant="outlined" onClick={() => dispatch(addField("textarea"))}>
                   Textarea
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(addField("select"))}
-                >
+                <Button variant="outlined" onClick={() => dispatch(addField("select"))}>
                   Dropdown
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(addField("radio"))}
-                >
+                <Button variant="outlined" onClick={() => dispatch(addField("radio"))}>
                   Radio
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(addField("checkbox"))}
-                >
+                <Button variant="outlined" onClick={() => dispatch(addField("checkbox"))}>
                   Checkbox
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(addField("date"))}
-                >
+                <Button variant="outlined" onClick={() => dispatch(addField("date"))}>
                   Date
                 </Button>
               </Box>
@@ -292,11 +284,32 @@ export default function CreateFormPage() {
         onClose={() => setEditId(null)}
         onPatch={(id, patch) => dispatch(updateField({ id, patch }))}
       />
+
+      {/* Save dialog */}
+      <Dialog open={openSave} onClose={() => setOpenSave(false)}>
+        <DialogTitle>Save form</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Form name"
+            fullWidth
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenSave(false)}>Cancel</Button>
+          <Button onClick={doSave} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 }
 
-/* -------- Dialog editor (recipes-based derived) -------- */
+/* -------- Dialog editor (logic in popup) -------- */
 
 function FieldEditDialog({
   open,
@@ -306,10 +319,10 @@ function FieldEditDialog({
   onPatch,
 }: {
   open: boolean;
-  field: any | null;
-  allFields: any[];
+  field: Field | null;
+  allFields: Field[];
   onClose: () => void;
-  onPatch: (id: string, patch: Partial<any>) => void;
+  onPatch: (id: string, patch: Partial<Field>) => void;
 }) {
   if (!field) return null;
 
@@ -317,7 +330,7 @@ function FieldEditDialog({
     const set = new Set<string>(field.validations ?? []);
     if (set.has(rule)) set.delete(rule);
     else set.add(rule);
-    onPatch(field.id, { validations: Array.from(set) });
+    onPatch(field.id, { validations: Array.from(set) as any });
   };
 
   const updateOption = (
@@ -340,76 +353,58 @@ function FieldEditDialog({
   };
 
   const removeOption = (i: number) => {
-    const next = (field.options ?? []).filter(
-      (_: any, idx: number) => idx !== i
-    );
+    const next = (field.options ?? []).filter((_, idx) => idx !== i);
     onPatch(field.id, { options: next });
   };
 
-  /** ===== Derived (recipes) UI ===== */
-  const isDerived = !!field.derived;
-  const recipe: DerivedRecipe = field.derived?.recipe ?? "fullName";
-  const parents: string[] = field.derived?.parents ?? [];
-
-  const textFields = allFields.filter(
-    (f) => f.type === "text" && f.id !== field.id
+  // --- Derived (recipes only) ---
+  const [recipe, setRecipe] = React.useState<DerivedRecipe | "">(
+    field.derived?.recipe ?? ""
   );
-  const dateFields = allFields.filter(
-    (f) => f.type === "date" && f.id !== field.id
+  const [parents, setParents] = React.useState<string[]>(
+    field.derived?.parents ?? []
   );
 
-  const setDerived = (enabled: boolean) => {
-    if (!enabled) {
+  React.useEffect(() => {
+    setRecipe(field.derived?.recipe ?? "");
+    setParents(field.derived?.parents ?? []);
+  }, [field.id]);
+
+  const requiredCount = React.useMemo(() => {
+    if (!recipe) return 0;
+    if (recipe === "fullName" || recipe === "daysBetweenDates") return 2;
+    return 1;
+  }, [recipe]);
+
+  const allowByType = (t: Field["type"]) => {
+    if (!recipe) return false;
+    if (recipe === "ageFromDate" || recipe === "daysBetweenDates") return t === "date";
+    if (recipe === "uppercase" || recipe === "lowercase" || recipe === "fullName")
+      return t === "text" || t === "textarea";
+    return false;
+  };
+
+  const candidates = allFields.filter(
+    (f) => f.id !== field.id && allowByType(f.type)
+  );
+
+  const parentsErr =
+    recipe && parents.length !== requiredCount
+      ? `Pick exactly ${requiredCount} field${requiredCount > 1 ? "s" : ""}`
+      : "";
+
+  // Commit to store whenever recipe/parents change
+  React.useEffect(() => {
+    if (!recipe) {
       onPatch(field.id, { derived: undefined });
       return;
     }
-    // default recipe config
-    let nextParents: string[] = [];
-    let nextType = field.type;
-    if (recipe === "fullName") {
-      nextParents = [textFields[0]?.key ?? "", textFields[1]?.key ?? ""].filter(
-        Boolean
-      );
-      nextType = "text";
-    } else if (recipe === "ageFromDOB") {
-      nextParents = [dateFields[0]?.key ?? ""].filter(Boolean);
-      nextType = "number";
-    } else {
-      // daysBetween
-      nextParents = [dateFields[0]?.key ?? "", dateFields[1]?.key ?? ""].filter(
-        Boolean
-      );
-      nextType = "number";
-    }
-    onPatch(field.id, { derived: { recipe, parents: nextParents }, type: nextType });
-  };
-
-  const changeRecipe = (r: DerivedRecipe) => {
-    // when switching, prefill sensible parents and type
-    let nextParents: string[] = [];
-    let nextType: "text" | "number" = "text";
-    if (r === "fullName") {
-      nextParents = [textFields[0]?.key ?? "", textFields[1]?.key ?? ""].filter(
-        Boolean
-      );
-      nextType = "text";
-    } else if (r === "ageFromDOB") {
-      nextParents = [dateFields[0]?.key ?? ""].filter(Boolean);
-      nextType = "number";
-    } else {
-      nextParents = [dateFields[0]?.key ?? "", dateFields[1]?.key ?? ""].filter(
-        Boolean
-      );
-      nextType = "number";
-    }
-    onPatch(field.id, { derived: { recipe: r, parents: nextParents }, type: nextType });
-  };
-
-  const setParentAt = (index: number, key: string) => {
-    const next = [...parents];
-    next[index] = key;
-    onPatch(field.id, { derived: { recipe, parents: next } });
-  };
+    // trim to allowed count
+    const trimmed =
+      requiredCount > 0 ? parents.slice(0, requiredCount) : parents;
+    onPatch(field.id, { derived: { recipe, parents: trimmed } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipe, JSON.stringify(parents), requiredCount]);
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -417,7 +412,6 @@ function FieldEditDialog({
 
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          {/* Basics */}
           <Typography variant="overline" color="text.secondary">
             Basics
           </Typography>
@@ -432,7 +426,7 @@ function FieldEditDialog({
           {(field.type === "text" ||
             field.type === "number" ||
             field.type === "textarea" ||
-            field.type === "date") && !isDerived && (
+            field.type === "date") && (
             <>
               <Typography variant="overline" color="text.secondary">
                 Default
@@ -460,7 +454,6 @@ function FieldEditDialog({
 
           <Divider />
 
-          {/* Validation (unchanged) */}
           <Typography variant="overline" color="text.secondary">
             Validation
           </Typography>
@@ -487,155 +480,128 @@ function FieldEditDialog({
             )}
           </Box>
 
-          {/* NEW: Derived (recipes) */}
-          <Divider />
-          <Typography variant="overline" color="text.secondary">
-            Derived
-          </Typography>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={isDerived}
-                onChange={(e) => setDerived(e.target.checked)}
+          {/* Length rules (text + textarea) */}
+          {(field.type === "text" || field.type === "textarea") && (
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              sx={{ mt: 1 }}
+            >
+              <TextField
+                size="small"
+                type="number"
+                label="Min length"
+                inputProps={{ min: 0 }}
+                value={field.minLength ?? ""}
+                onChange={(e) =>
+                  onPatch(field.id, {
+                    minLength:
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
+                  })
+                }
+                sx={{ maxWidth: 160 }}
               />
-            }
-            label="Make this a derived field"
-          />
-
-          {isDerived && (
-            <Stack spacing={1.5}>
-              <FormControl>
-                <FormLabel>Recipe</FormLabel>
-                <RadioGroup
-                  row
-                  value={recipe}
-                  onChange={(e) => changeRecipe(e.target.value as DerivedRecipe)}
-                >
-                  <FormControlLabel
-                    value="fullName"
-                    control={<Radio />}
-                    label="Full name (text + text)"
-                  />
-                  <FormControlLabel
-                    value="ageFromDOB"
-                    control={<Radio />}
-                    label="Age from DOB (date)"
-                  />
-                  <FormControlLabel
-                    value="daysBetween"
-                    control={<Radio />}
-                    label="Days between two dates"
-                  />
-                </RadioGroup>
-              </FormControl>
-
-              {/* Parent selectors */}
-              {recipe === "fullName" && (
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                  <Select
-                    size="small"
-                    value={parents[0] ?? ""}
-                    onChange={(e) => setParentAt(0, e.target.value as string)}
-                    displayEmpty
-                    fullWidth
-                  >
-                    <MenuItem value="">
-                      <em>First name field…</em>
-                    </MenuItem>
-                    {textFields.map((tf: any) => (
-                      <MenuItem key={tf.id} value={tf.key}>
-                        {tf.label || tf.key}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <Select
-                    size="small"
-                    value={parents[1] ?? ""}
-                    onChange={(e) => setParentAt(1, e.target.value as string)}
-                    displayEmpty
-                    fullWidth
-                  >
-                    <MenuItem value="">
-                      <em>Last name field…</em>
-                    </MenuItem>
-                    {textFields.map((tf: any) => (
-                      <MenuItem key={tf.id} value={tf.key}>
-                        {tf.label || tf.key}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </Stack>
-              )}
-
-              {recipe === "ageFromDOB" && (
-                <Select
-                  size="small"
-                  value={parents[0] ?? ""}
-                  onChange={(e) => setParentAt(0, e.target.value as string)}
-                  displayEmpty
-                  fullWidth
-                >
-                  <MenuItem value="">
-                    <em>Select DOB field…</em>
-                  </MenuItem>
-                  {dateFields.map((df: any) => (
-                    <MenuItem key={df.id} value={df.key}>
-                      {df.label || df.key}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
-
-              {recipe === "daysBetween" && (
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                  <Select
-                    size="small"
-                    value={parents[0] ?? ""}
-                    onChange={(e) => setParentAt(0, e.target.value as string)}
-                    displayEmpty
-                    fullWidth
-                  >
-                    <MenuItem value="">
-                      <em>Start date…</em>
-                    </MenuItem>
-                    {dateFields.map((df: any) => (
-                      <MenuItem key={df.id} value={df.key}>
-                        {df.label || df.key}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <Select
-                    size="small"
-                    value={parents[1] ?? ""}
-                    onChange={(e) => setParentAt(1, e.target.value as string)}
-                    displayEmpty
-                    fullWidth
-                  >
-                    <MenuItem value="">
-                      <em>End date…</em>
-                    </MenuItem>
-                    {dateFields.map((df: any) => (
-                      <MenuItem key={df.id} value={df.key}>
-                        {df.label || df.key}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </Stack>
-              )}
-
-              <Typography variant="caption" color="text.secondary">
-                Derived fields are read-only in Preview and auto-update when
-                parent fields change. We also set the proper type automatically
-                (text/number).
-              </Typography>
+              <TextField
+                size="small"
+                type="number"
+                label="Max length"
+                inputProps={{ min: 0 }}
+                value={field.maxLength ?? ""}
+                onChange={(e) =>
+                  onPatch(field.id, {
+                    maxLength:
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
+                  })
+                }
+                sx={{ maxWidth: 160 }}
+              />
             </Stack>
           )}
 
-          {/* Options (select/radio/checkbox) */}
+          {/* Password policy (text only) */}
+          {field.type === "text" && (
+            <FormControlLabel
+              sx={{ mt: 1 }}
+              control={
+                <Checkbox
+                  checked={!!field.password}
+                  onChange={(e) =>
+                    onPatch(field.id, { password: e.target.checked })
+                  }
+                />
+              }
+              label="Password policy: min 8 & must include a number"
+            />
+          )}
+
+          {/* DERIVED (recipes only) */}
+          <Divider />
+          <Typography variant="overline" color="text.secondary">
+            Derived (optional)
+          </Typography>
+
+          <FormControl size="small" sx={{ maxWidth: 260 }}>
+            <InputLabel id="recipe-lbl">Recipe</InputLabel>
+            <Select
+              labelId="recipe-lbl"
+              label="Recipe"
+              value={recipe}
+              onChange={(e) => {
+                setParents([]); // reset parents when recipe changes
+                setRecipe(e.target.value as DerivedRecipe | "");
+              }}
+            >
+              <MenuItem value="">None</MenuItem>
+              <MenuItem value="fullName">Full name (A + B)</MenuItem>
+              <MenuItem value="ageFromDate">Age from Date</MenuItem>
+              <MenuItem value="daysBetweenDates">Days between two Dates</MenuItem>
+              <MenuItem value="uppercase">Uppercase of A</MenuItem>
+              <MenuItem value="lowercase">Lowercase of A</MenuItem>
+            </Select>
+            {!!parentsErr && <FormHelperText error>{parentsErr}</FormHelperText>}
+          </FormControl>
+
+          {!!recipe && (
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                Pick parent field{requiredCount > 1 ? "s" : ""}:
+              </Typography>
+              <Stack>
+                {candidates.map((p) => {
+                  const checked = parents.includes(p.key);
+                  const disableExtra =
+                    requiredCount > 0 && !checked && parents.length >= requiredCount;
+                  return (
+                    <FormControlLabel
+                      key={p.id}
+                      control={
+                        <Checkbox
+                          checked={checked}
+                          onChange={(e) =>
+                            setParents((cur) =>
+                              e.target.checked
+                                ? [...cur, p.key]
+                                : cur.filter((k) => k !== p.key)
+                            )
+                          }
+                          disabled={disableExtra}
+                        />
+                      }
+                      label={`${p.label || "(unnamed)"} — ${p.key}`}
+                    />
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
+
           {(field.type === "select" ||
             field.type === "radio" ||
-            field.type === "checkbox") && !isDerived && (
+            field.type === "checkbox") && (
             <>
               <Divider />
               <Typography variant="overline" color="text.secondary">
@@ -653,18 +619,14 @@ function FieldEditDialog({
                       size="small"
                       label="Label"
                       value={opt.label}
-                      onChange={(e) =>
-                        updateOption(i, { label: e.target.value })
-                      }
+                      onChange={(e) => updateOption(i, { label: e.target.value })}
                       fullWidth
                     />
                     <TextField
                       size="small"
                       label="Value"
                       value={opt.value}
-                      onChange={(e) =>
-                        updateOption(i, { value: e.target.value })
-                      }
+                      onChange={(e) => updateOption(i, { value: e.target.value })}
                       fullWidth
                     />
                     <IconButton
