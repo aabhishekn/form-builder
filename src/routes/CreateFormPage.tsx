@@ -107,13 +107,15 @@ export default function CreateFormPage() {
                             alignItems="center"
                           >
                             <Typography
-  fontWeight={600}
-  noWrap
-  color={f.label ? 'text.primary' : 'text.secondary'}
-  fontStyle={f.label ? 'normal' : 'italic'}
->
-  {f.label || 'Click Edit to name'}
-</Typography>
+                              fontWeight={600}
+                              noWrap
+                              color={
+                                f.label ? "text.primary" : "text.secondary"
+                              }
+                              fontStyle={f.label ? "normal" : "italic"}
+                            >
+                              {f.label || "Click Edit to name"}
+                            </Typography>
 
                             <Tooltip title={`Key: ${f.key}`} arrow>
                               <Chip
@@ -195,7 +197,7 @@ export default function CreateFormPage() {
                 <TextField
                   size="small"
                   label="Form name"
-                  value={formName ?? ''}
+                  value={formName ?? ""}
                   onChange={(e) => dispatch(setFormName(e.target.value))}
                   sx={{ flex: 1, minWidth: 220 }}
                 />
@@ -333,9 +335,7 @@ function FieldEditDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-  Edit “{field.label || "Click to name"}”
-</DialogTitle>
+      <DialogTitle>Edit “{field.label || "Click to name"}”</DialogTitle>
 
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -413,6 +413,63 @@ function FieldEditDialog({
               />
             )}
           </Box>
+          {/* Length rules (text + textarea) */}
+          {(field.type === "text" || field.type === "textarea") && (
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              sx={{ mt: 1 }}
+            >
+              <TextField
+                size="small"
+                type="number"
+                label="Min length"
+                inputProps={{ min: 0 }}
+                value={field.minLength ?? ""}
+                onChange={(e) =>
+                  onPatch(field.id, {
+                    minLength:
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
+                  })
+                }
+                sx={{ maxWidth: 160 }}
+              />
+              <TextField
+                size="small"
+                type="number"
+                label="Max length"
+                inputProps={{ min: 0 }}
+                value={field.maxLength ?? ""}
+                onChange={(e) =>
+                  onPatch(field.id, {
+                    maxLength:
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
+                  })
+                }
+                sx={{ maxWidth: 160 }}
+              />
+            </Stack>
+          )}
+
+          {/* Password policy (text only) */}
+          {field.type === "text" && (
+            <FormControlLabel
+              sx={{ mt: 1 }}
+              control={
+                <Checkbox
+                  checked={!!field.password}
+                  onChange={(e) =>
+                    onPatch(field.id, { password: e.target.checked })
+                  }
+                />
+              }
+              label="Password policy: min 8 & must include a number"
+            />
+          )}
 
           {(field.type === "select" ||
             field.type === "radio" ||
