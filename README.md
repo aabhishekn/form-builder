@@ -204,13 +204,4 @@ Errors are shown inline (MUI helperText / error state).
 
 ---
 
-## Roadmap
-
-* Drag & drop reordering
-* Conditional visibility
-* Export/Import schemas (JSON)
-* Shareable public preview links
-
----
-
 > © 2025 — Dynamic Form Builder. MIT Licensed.
