@@ -23,6 +23,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  RadioGroup,
+  Radio,
+  FormControl,
+  FormLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -39,6 +45,8 @@ import {
   deleteField,
   reorderField,
 } from "../features/formBuilder/formSlice";
+
+type DerivedRecipe = "fullName" | "ageFromDOB" | "daysBetween";
 
 export default function CreateFormPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -116,9 +124,15 @@ export default function CreateFormPage() {
                             >
                               {f.label || "Click Edit to name"}
                             </Typography>
+
                             <Chip size="small" label={f.type} variant="outlined" />
-                            {f.derived?.isDerived && (
-                              <Chip size="small" color="secondary" label="derived" />
+                            {f.derived && (
+                              <Chip
+                                size="small"
+                                label="derived"
+                                color="secondary"
+                                variant="outlined"
+                              />
                             )}
                           </Stack>
                         }
@@ -274,7 +288,7 @@ export default function CreateFormPage() {
       <FieldEditDialog
         open={!!editId}
         field={editing}
-        allFields={fields}                    
+        allFields={fields}
         onClose={() => setEditId(null)}
         onPatch={(id, patch) => dispatch(updateField({ id, patch }))}
       />
@@ -282,20 +296,20 @@ export default function CreateFormPage() {
   );
 }
 
-/* -------- Dialog editor (same logic, in popup) -------- */
+/* -------- Dialog editor (recipes-based derived) -------- */
 
 function FieldEditDialog({
   open,
   field,
+  allFields,
   onClose,
   onPatch,
-  allFields,
 }: {
   open: boolean;
   field: any | null;
+  allFields: any[];
   onClose: () => void;
   onPatch: (id: string, patch: Partial<any>) => void;
-  allFields: any[]; // simple typing to avoid refactors
 }) {
   if (!field) return null;
 
@@ -332,29 +346,69 @@ function FieldEditDialog({
     onPatch(field.id, { options: next });
   };
 
-  // DERIVED helpers
-  const toggleDerived = (checked: boolean) => {
-    if (!checked) onPatch(field.id, { derived: undefined });
-    else
-      onPatch(field.id, {
-        derived: {
-          isDerived: true,
-          dependsOn: field.derived?.dependsOn ?? [],
-          formula: field.derived?.formula ?? "",
-        },
-      });
+  /** ===== Derived (recipes) UI ===== */
+  const isDerived = !!field.derived;
+  const recipe: DerivedRecipe = field.derived?.recipe ?? "fullName";
+  const parents: string[] = field.derived?.parents ?? [];
+
+  const textFields = allFields.filter(
+    (f) => f.type === "text" && f.id !== field.id
+  );
+  const dateFields = allFields.filter(
+    (f) => f.type === "date" && f.id !== field.id
+  );
+
+  const setDerived = (enabled: boolean) => {
+    if (!enabled) {
+      onPatch(field.id, { derived: undefined });
+      return;
+    }
+    // default recipe config
+    let nextParents: string[] = [];
+    let nextType = field.type;
+    if (recipe === "fullName") {
+      nextParents = [textFields[0]?.key ?? "", textFields[1]?.key ?? ""].filter(
+        Boolean
+      );
+      nextType = "text";
+    } else if (recipe === "ageFromDOB") {
+      nextParents = [dateFields[0]?.key ?? ""].filter(Boolean);
+      nextType = "number";
+    } else {
+      // daysBetween
+      nextParents = [dateFields[0]?.key ?? "", dateFields[1]?.key ?? ""].filter(
+        Boolean
+      );
+      nextType = "number";
+    }
+    onPatch(field.id, { derived: { recipe, parents: nextParents }, type: nextType });
   };
 
-  const toggleParent = (k: string, checked: boolean) => {
-    const prev = field.derived?.dependsOn ?? [];
-    const next = checked ? [...prev, k] : prev.filter((x: string) => x !== k);
-    onPatch(field.id, {
-      derived: {
-        isDerived: true,
-        dependsOn: next,
-        formula: field.derived?.formula ?? "",
-      },
-    });
+  const changeRecipe = (r: DerivedRecipe) => {
+    // when switching, prefill sensible parents and type
+    let nextParents: string[] = [];
+    let nextType: "text" | "number" = "text";
+    if (r === "fullName") {
+      nextParents = [textFields[0]?.key ?? "", textFields[1]?.key ?? ""].filter(
+        Boolean
+      );
+      nextType = "text";
+    } else if (r === "ageFromDOB") {
+      nextParents = [dateFields[0]?.key ?? ""].filter(Boolean);
+      nextType = "number";
+    } else {
+      nextParents = [dateFields[0]?.key ?? "", dateFields[1]?.key ?? ""].filter(
+        Boolean
+      );
+      nextType = "number";
+    }
+    onPatch(field.id, { derived: { recipe: r, parents: nextParents }, type: nextType });
+  };
+
+  const setParentAt = (index: number, key: string) => {
+    const next = [...parents];
+    next[index] = key;
+    onPatch(field.id, { derived: { recipe, parents: next } });
   };
 
   return (
@@ -363,6 +417,7 @@ function FieldEditDialog({
 
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {/* Basics */}
           <Typography variant="overline" color="text.secondary">
             Basics
           </Typography>
@@ -377,7 +432,7 @@ function FieldEditDialog({
           {(field.type === "text" ||
             field.type === "number" ||
             field.type === "textarea" ||
-            field.type === "date") && (
+            field.type === "date") && !isDerived && (
             <>
               <Typography variant="overline" color="text.secondary">
                 Default
@@ -405,6 +460,7 @@ function FieldEditDialog({
 
           <Divider />
 
+          {/* Validation (unchanged) */}
           <Typography variant="overline" color="text.secondary">
             Validation
           </Typography>
@@ -431,66 +487,155 @@ function FieldEditDialog({
             )}
           </Box>
 
-          {(field.type === "text" || field.type === "textarea") && (
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              sx={{ mt: 1 }}
-            >
-              <TextField
-                size="small"
-                type="number"
-                label="Min length"
-                inputProps={{ min: 0 }}
-                value={field.minLength ?? ""}
-                onChange={(e) =>
-                  onPatch(field.id, {
-                    minLength:
-                      e.target.value === ""
-                        ? undefined
-                        : Number(e.target.value),
-                  })
-                }
-                sx={{ maxWidth: 160 }}
+          {/* NEW: Derived (recipes) */}
+          <Divider />
+          <Typography variant="overline" color="text.secondary">
+            Derived
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isDerived}
+                onChange={(e) => setDerived(e.target.checked)}
               />
-              <TextField
-                size="small"
-                type="number"
-                label="Max length"
-                inputProps={{ min: 0 }}
-                value={field.maxLength ?? ""}
-                onChange={(e) =>
-                  onPatch(field.id, {
-                    maxLength:
-                      e.target.value === ""
-                        ? undefined
-                        : Number(e.target.value),
-                  })
-                }
-                sx={{ maxWidth: 160 }}
-              />
+            }
+            label="Make this a derived field"
+          />
+
+          {isDerived && (
+            <Stack spacing={1.5}>
+              <FormControl>
+                <FormLabel>Recipe</FormLabel>
+                <RadioGroup
+                  row
+                  value={recipe}
+                  onChange={(e) => changeRecipe(e.target.value as DerivedRecipe)}
+                >
+                  <FormControlLabel
+                    value="fullName"
+                    control={<Radio />}
+                    label="Full name (text + text)"
+                  />
+                  <FormControlLabel
+                    value="ageFromDOB"
+                    control={<Radio />}
+                    label="Age from DOB (date)"
+                  />
+                  <FormControlLabel
+                    value="daysBetween"
+                    control={<Radio />}
+                    label="Days between two dates"
+                  />
+                </RadioGroup>
+              </FormControl>
+
+              {/* Parent selectors */}
+              {recipe === "fullName" && (
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <Select
+                    size="small"
+                    value={parents[0] ?? ""}
+                    onChange={(e) => setParentAt(0, e.target.value as string)}
+                    displayEmpty
+                    fullWidth
+                  >
+                    <MenuItem value="">
+                      <em>First name field…</em>
+                    </MenuItem>
+                    {textFields.map((tf: any) => (
+                      <MenuItem key={tf.id} value={tf.key}>
+                        {tf.label || tf.key}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Select
+                    size="small"
+                    value={parents[1] ?? ""}
+                    onChange={(e) => setParentAt(1, e.target.value as string)}
+                    displayEmpty
+                    fullWidth
+                  >
+                    <MenuItem value="">
+                      <em>Last name field…</em>
+                    </MenuItem>
+                    {textFields.map((tf: any) => (
+                      <MenuItem key={tf.id} value={tf.key}>
+                        {tf.label || tf.key}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Stack>
+              )}
+
+              {recipe === "ageFromDOB" && (
+                <Select
+                  size="small"
+                  value={parents[0] ?? ""}
+                  onChange={(e) => setParentAt(0, e.target.value as string)}
+                  displayEmpty
+                  fullWidth
+                >
+                  <MenuItem value="">
+                    <em>Select DOB field…</em>
+                  </MenuItem>
+                  {dateFields.map((df: any) => (
+                    <MenuItem key={df.id} value={df.key}>
+                      {df.label || df.key}
+                    </MenuItem>
+                  ))}
+                </Select>
+              )}
+
+              {recipe === "daysBetween" && (
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <Select
+                    size="small"
+                    value={parents[0] ?? ""}
+                    onChange={(e) => setParentAt(0, e.target.value as string)}
+                    displayEmpty
+                    fullWidth
+                  >
+                    <MenuItem value="">
+                      <em>Start date…</em>
+                    </MenuItem>
+                    {dateFields.map((df: any) => (
+                      <MenuItem key={df.id} value={df.key}>
+                        {df.label || df.key}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Select
+                    size="small"
+                    value={parents[1] ?? ""}
+                    onChange={(e) => setParentAt(1, e.target.value as string)}
+                    displayEmpty
+                    fullWidth
+                  >
+                    <MenuItem value="">
+                      <em>End date…</em>
+                    </MenuItem>
+                    {dateFields.map((df: any) => (
+                      <MenuItem key={df.id} value={df.key}>
+                        {df.label || df.key}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Stack>
+              )}
+
+              <Typography variant="caption" color="text.secondary">
+                Derived fields are read-only in Preview and auto-update when
+                parent fields change. We also set the proper type automatically
+                (text/number).
+              </Typography>
             </Stack>
           )}
 
-          {field.type === "text" && (
-            <FormControlLabel
-              sx={{ mt: 1 }}
-              control={
-                <Checkbox
-                  checked={!!field.password}
-                  onChange={(e) =>
-                    onPatch(field.id, { password: e.target.checked })
-                  }
-                />
-              }
-              label="Password policy: min 8 & must include a number"
-            />
-          )}
-
-          {/* OPTIONS */}
+          {/* Options (select/radio/checkbox) */}
           {(field.type === "select" ||
             field.type === "radio" ||
-            field.type === "checkbox") && (
+            field.type === "checkbox") && !isDerived && (
             <>
               <Divider />
               <Typography variant="overline" color="text.secondary">
@@ -536,80 +681,6 @@ function FieldEditDialog({
                 </Button>
               </Stack>
             </>
-          )}
-
-          {/* DERIVED */}
-          <Divider />
-          <Typography variant="overline" color="text.secondary">
-            Derived
-          </Typography>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={!!field.derived?.isDerived}
-                onChange={(e) => toggleDerived(e.target.checked)}
-              />
-            }
-            label="Make this a derived field"
-          />
-
-          {field.derived?.isDerived && (
-            <Stack spacing={1} sx={{ pl: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                Select parent fields:
-              </Typography>
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fill, minmax(220px,1fr))",
-                  gap: 0.5,
-                }}
-              >
-                {allFields
-                  .filter((af) => af.id !== field.id)
-                  .map((af) => {
-                    const checked =
-                      field.derived?.dependsOn?.includes(af.key) ?? false;
-                    return (
-                      <FormControlLabel
-                        key={af.id}
-                        label={`${af.label || "Untitled"} — ${af.key}`}
-                        control={
-                          <Checkbox
-                            checked={checked}
-                            onChange={(e) =>
-                              toggleParent(af.key, e.target.checked)
-                            }
-                          />
-                        }
-                      />
-                    );
-                  })}
-              </Box>
-
-              <TextField
-                label="Formula"
-                placeholder="e.g. concat(firstName,' ',lastName) or ageFrom(dob)"
-                value={field.derived?.formula ?? ""}
-                onChange={(e) =>
-                  onPatch(field.id, {
-                    derived: {
-                      isDerived: true,
-                      dependsOn: field.derived?.dependsOn ?? [],
-                      formula: e.target.value,
-                    },
-                  })
-                }
-                multiline
-                minRows={2}
-              />
-              <Typography variant="caption" color="text.secondary">
-                Helpers: now(), concat(...), lower(s), upper(s), ageFrom(dobISO),
-                dateDiffDays(aISO,bISO)
-              </Typography>
-            </Stack>
           )}
         </Stack>
       </DialogContent>
