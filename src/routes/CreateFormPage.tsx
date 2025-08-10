@@ -117,13 +117,8 @@ export default function CreateFormPage() {
                               {f.label || "Click Edit to name"}
                             </Typography>
 
-                            <Tooltip title={`Key: ${f.key}`} arrow>
-                              <Chip
-                                size="small"
-                                label={f.type}
-                                variant="outlined"
-                              />
-                            </Tooltip>
+                            <Chip size="small" label={f.type} variant="outlined" />
+
                           </Stack>
                         }
                       />
@@ -347,13 +342,6 @@ function FieldEditDialog({
             label="Label"
             value={field.label}
             onChange={(e) => onPatch(field.id, { label: e.target.value })}
-            fullWidth
-          />
-          <TextField
-            label="Key (used in Preview)"
-            value={field.key}
-            onChange={(e) => onPatch(field.id, { key: e.target.value })}
-            helperText="Unique key used in values and formulas"
             fullWidth
           />
 
