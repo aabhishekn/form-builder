@@ -2,7 +2,7 @@
 import * as React from "react";
 import {
   Button, List, ListItemButton, ListItemText, Stack, Box, TextField, Typography,
-  FormControlLabel, Checkbox, IconButton, Divider, Card, CardHeader, CardContent,
+ IconButton, Card, CardHeader, CardContent,
   Alert, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
@@ -13,7 +13,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "../app/store";
 import {
-  addField, updateField, setFormName, saveCurrent, deleteField, reorderField, type Field
+  addField, updateField, setFormName, saveCurrent, deleteField, reorderField
 } from "../features/formBuilder/formSlice";
 
 // NEW: import extracted dialog

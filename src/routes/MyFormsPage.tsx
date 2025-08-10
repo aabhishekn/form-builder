@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import type { RootState, AppDispatch } from '../app/store'
 import { loadSaved, deleteSaved } from '../features/formBuilder/formSlice'
