@@ -274,7 +274,7 @@ export default function CreateFormPage() {
       <FieldEditDialog
         open={!!editId}
         field={editing}
-        allFields={fields}                      {/* <-- pass all fields */}
+        allFields={fields}                    
         onClose={() => setEditId(null)}
         onPatch={(id, patch) => dispatch(updateField({ id, patch }))}
       />
