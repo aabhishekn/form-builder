@@ -135,9 +135,17 @@ export default function CreateFormPage() {
                               {f.label || "Click Edit to name"}
                             </Typography>
 
-                            <Chip size="small" label={f.type} variant="outlined" />
+                            <Chip
+                              size="small"
+                              label={f.type}
+                              variant="outlined"
+                            />
                             {f.derived && (
-                              <Chip size="small" color="secondary" label="derived" />
+                              <Chip
+                                size="small"
+                                color="secondary"
+                                label="derived"
+                              />
                             )}
                           </Stack>
                         }
@@ -249,25 +257,46 @@ export default function CreateFormPage() {
                   gap: 1,
                 }}
               >
-                <Button variant="outlined" onClick={() => dispatch(addField("text"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("text"))}
+                >
                   Text
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("number"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("number"))}
+                >
                   Number
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("textarea"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("textarea"))}
+                >
                   Textarea
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("select"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("select"))}
+                >
                   Dropdown
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("radio"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("radio"))}
+                >
                   Radio
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("checkbox"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("checkbox"))}
+                >
                   Checkbox
                 </Button>
-                <Button variant="outlined" onClick={() => dispatch(addField("date"))}>
+                <Button
+                  variant="outlined"
+                  onClick={() => dispatch(addField("date"))}
+                >
                   Date
                 </Button>
               </Box>
@@ -378,8 +407,13 @@ function FieldEditDialog({
 
   const allowByType = (t: Field["type"]) => {
     if (!recipe) return false;
-    if (recipe === "ageFromDate" || recipe === "daysBetweenDates") return t === "date";
-    if (recipe === "uppercase" || recipe === "lowercase" || recipe === "fullName")
+    if (recipe === "ageFromDate" || recipe === "daysBetweenDates")
+      return t === "date";
+    if (
+      recipe === "uppercase" ||
+      recipe === "lowercase" ||
+      recipe === "fullName"
+    )
       return t === "text" || t === "textarea";
     return false;
   };
@@ -407,7 +441,13 @@ function FieldEditDialog({
   }, [recipe, JSON.stringify(parents), requiredCount]);
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      TransitionProps={{ timeout: 0 }}
+    >
       <DialogTitle>Edit “{field.label || "Click to name"}”</DialogTitle>
 
       <DialogContent dividers>
@@ -554,15 +594,20 @@ function FieldEditDialog({
                 setParents([]); // reset parents when recipe changes
                 setRecipe(e.target.value as DerivedRecipe | "");
               }}
+              MenuProps={{ keepMounted: true, disablePortal: true }}
             >
               <MenuItem value="">None</MenuItem>
               <MenuItem value="fullName">Full name (A + B)</MenuItem>
               <MenuItem value="ageFromDate">Age from Date</MenuItem>
-              <MenuItem value="daysBetweenDates">Days between two Dates</MenuItem>
+              <MenuItem value="daysBetweenDates">
+                Days between two Dates
+              </MenuItem>
               <MenuItem value="uppercase">Uppercase of A</MenuItem>
               <MenuItem value="lowercase">Lowercase of A</MenuItem>
             </Select>
-            {!!parentsErr && <FormHelperText error>{parentsErr}</FormHelperText>}
+            {!!parentsErr && (
+              <FormHelperText error>{parentsErr}</FormHelperText>
+            )}
           </FormControl>
 
           {!!recipe && (
@@ -570,11 +615,21 @@ function FieldEditDialog({
               <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                 Pick parent field{requiredCount > 1 ? "s" : ""}:
               </Typography>
-              <Stack>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr",
+                  rowGap: 0.5, // consistent spacing
+                  alignItems: "start",
+                }}
+              >
                 {candidates.map((p) => {
                   const checked = parents.includes(p.key);
                   const disableExtra =
-                    requiredCount > 0 && !checked && parents.length >= requiredCount;
+                    requiredCount > 0 &&
+                    !checked &&
+                    parents.length >= requiredCount;
                   return (
                     <FormControlLabel
                       key={p.id}
@@ -591,11 +646,12 @@ function FieldEditDialog({
                           disabled={disableExtra}
                         />
                       }
-                      label={`${p.label || "(unnamed)"}`}
+                      label={`${p.label || "(unnamed)"} — ${p.key}`}
+                      sx={{ m: 0 }} // kill default margins to avoid jumps
                     />
                   );
                 })}
-              </Stack>
+              </Box>
             </Box>
           )}
 
@@ -619,14 +675,18 @@ function FieldEditDialog({
                       size="small"
                       label="Label"
                       value={opt.label}
-                      onChange={(e) => updateOption(i, { label: e.target.value })}
+                      onChange={(e) =>
+                        updateOption(i, { label: e.target.value })
+                      }
                       fullWidth
                     />
                     <TextField
                       size="small"
                       label="Value"
                       value={opt.value}
-                      onChange={(e) => updateOption(i, { value: e.target.value })}
+                      onChange={(e) =>
+                        updateOption(i, { value: e.target.value })
+                      }
                       fullWidth
                     />
                     <IconButton
