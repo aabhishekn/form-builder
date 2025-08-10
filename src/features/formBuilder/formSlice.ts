@@ -9,7 +9,11 @@ import {
 type FieldType = 'text' | 'number' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'date'
 type Option = { label: string; value: string };
 type Validation = "required" | "email";
-
+type DerivedConfig = {
+  isDerived: boolean
+  dependsOn: string[]   // other field keys
+  formula: string       // e.g. concat(firstName,' ',lastName) or ageFrom(dob)
+}
 export type Field = {
   id: string
   label: string
@@ -21,6 +25,7 @@ export type Field = {
   minLength?: number
   maxLength?: number
   password?: boolean
+  derived?: DerivedConfig
 }
 
 type FormSnapshot = {
